@@ -6,6 +6,7 @@ import figlet from "figlet";
 import { Command } from "commander";
 import { login, logout, whoami } from "./commands/auth/login.js";
 import { wakeUp } from "./commands/ai/wakeUp.js";
+import { history } from "./commands/history/history.js";
 
 
 dotenv.config(); 
@@ -31,6 +32,7 @@ async function main() {
     .addCommand(logout)
     .addCommand(whoami)
     .addCommand(wakeUp)
+    .addCommand(history)
 
     program.action(() => {
         program.help();

@@ -103,6 +103,20 @@ export class ChatService {
   }
 
   /**
+   * Get a single conversation by ID (owned by user), returns null if not found
+   * @param {string} conversationId - Conversation ID
+   * @param {string} userId - User ID (for security)
+   */
+  async getConversationById(conversationId, userId) {
+    return await prisma.conversation.findFirst({
+      where: { id: conversationId, userId },
+      include: {
+        messages: { orderBy: { createdAt: "asc" } },
+      },
+    });
+  }
+
+  /**
    * Delete a conversation
    * @param {string} conversationId - Conversation ID
    * @param {string} userId - User ID (for security)
