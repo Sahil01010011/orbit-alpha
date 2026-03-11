@@ -152,7 +152,7 @@ const wakeUpAction = async (options) => {
     case "agent": {
       const conversationId = await askSessionStart(user.id, "agent");
       if (options.iterative) {
-        await startIterativeAgentChat(conversationId);
+        await startIterativeAgentChat(conversationId, process.cwd());
       } else {
         await startAgentChat(conversationId);
       }

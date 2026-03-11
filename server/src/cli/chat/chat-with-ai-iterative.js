@@ -9,6 +9,7 @@ import { ChatService } from "../../service/chat.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
 import prisma from "../../lib/db.js";
 import { z } from "zod";
+import { readProjectContext, formatContextForPrompt } from "../contextReader.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -85,10 +86,12 @@ const ReflectionSchema = z.object({
 /**
  * Create an in-memory loop state structure for a single goal execution.
  * @param {string} goal - The original user prompt / goal
+ * @param {object|null} projectContext - Structured context from readProjectContext()
  */
-function createLoopState(goal) {
+function createLoopState(goal, projectContext = null) {
   return {
     goal,
+    projectContext,
     plan: [],
     rationale: "",
     currentStep: 0,
@@ -145,10 +148,14 @@ async function generatePlan(loopState) {
   }).start();
 
   try {
+    const contextBlock = loopState.projectContext
+      ? `\n${formatContextForPrompt(loopState.projectContext)}\n`
+      : "";
+
     const plan = await aiService.generateStructured(
       PlanSchema,
       `You are an AI reasoning agent. Break down the following goal into specific, concrete, executable steps.
-
+${contextBlock}
 Goal: ${loopState.goal}
 
 Requirements:
@@ -156,6 +163,7 @@ Requirements:
 - Each step must be specific and actionable on its own
 - Steps should build on each other logically
 - Focus entirely on achieving the stated goal
+- Take the project context above into account when planning — use the correct language, framework, and existing structure
 
 Provide a clear rationale explaining your overall approach.`
     );
@@ -286,6 +294,55 @@ function displayFinalOutput(loopState) {
   );
 }
 
+function displayContextSummary(context) {
+  const lines = [];
+
+  lines.push(
+    `${chalk.bold("Directory:")} ${chalk.white(context.workingDirectory)}`
+  );
+  lines.push(
+    `${chalk.bold("Language:")}  ${chalk.cyan(context.detectedLanguage)}`
+  );
+
+  if (context.detectedFramework) {
+    lines.push(
+      `${chalk.bold("Framework:")} ${chalk.cyan(context.detectedFramework)}`
+    );
+  }
+
+  if (context.packageJson?.name) {
+    lines.push(
+      `${chalk.bold("Project:")}   ${chalk.white(context.packageJson.name)}` +
+        (context.packageJson.version
+          ? chalk.gray(` v${context.packageJson.version}`)
+          : "")
+    );
+  }
+
+  if (context.configFiles.length > 0) {
+    lines.push(
+      `${chalk.bold("Configs:")}   ${chalk.gray(context.configFiles.join(", "))}`
+    );
+  }
+
+  if (!context.packageJson) {
+    lines.push(
+      chalk.yellow("⚠️  No package.json found — proceeding with minimal context")
+    );
+  }
+
+  console.log(
+    boxen(lines.join("\n"), {
+      padding: 1,
+      margin: { top: 1, bottom: 1 },
+      borderStyle: "round",
+      borderColor: "magenta",
+      title: "🗂️  Project Context",
+      titleAlignment: "center",
+    })
+  );
+}
+
 // ─── Phase 2: Act ─────────────────────────────────────────────────────────────
 
 async function executeStep(loopState) {
@@ -309,19 +366,21 @@ async function executeStep(loopState) {
       ? `\nNote: This is retry attempt ${loopState.retryCount} for this step. The previous attempt was deemed insufficient — please improve your response.\n`
       : "";
 
+  const contextBlock = loopState.projectContext
+    ? `\n${formatContextForPrompt(loopState.projectContext)}\n`
+    : "";
+
   const messages = [
     {
       role: "user",
-      content:
-        `You are an AI reasoning agent executing a step as part of a larger plan.\n\n` +
-        `Goal: ${loopState.goal}\n\n` +
-        `Full plan:\n${loopState.plan
-          .map((s, i) => `${i + 1}. ${s}`)
-          .join("\n")}` +
-        previousContext +
-        retryNote +
-        `\nNow execute step ${stepNum}/${total}: ${step}\n\n` +
-        `Provide a thorough, complete, and specific result for this step. Be precise and actionable.`,
+      content: `You are an AI reasoning agent executing a step as part of a larger plan.\n${contextBlock}
+Goal: ${loopState.goal}
+
+Full plan:
+${loopState.plan.map((s, i) => `${i + 1}. ${s}`).join("\n")}${previousContext}${retryNote}
+Now execute step ${stepNum}/${total}: ${step}
+
+Provide a thorough, complete, and specific result for this step. Be precise and actionable.`,
     },
   ];
 
@@ -569,7 +628,7 @@ async function runReasoningLoop(loopState, conversationId) {
 
 // ─── Interactive goal loop ────────────────────────────────────────────────────
 
-async function iterativeAgentLoop(conversation) {
+async function iterativeAgentLoop(conversation, workingDirectory) {
   console.log(
     boxen(
       `${chalk.cyan.bold("How it works:")}\n\n` +
@@ -599,6 +658,22 @@ async function iterativeAgentLoop(conversation) {
       }
     )
   );
+
+  // ── Read project context once for the entire session ──────────────────────
+  const contextSpinner = yoctoSpinner({
+    text: "🗂️  Reading project context...",
+  }).start();
+
+  let projectContext = null;
+  try {
+    projectContext = await readProjectContext(workingDirectory);
+    contextSpinner.success("Project context loaded");
+    displayContextSummary(projectContext);
+  } catch (err) {
+    contextSpinner.warning(
+      `Could not read project context: ${err.message} — proceeding without context`
+    );
+  }
 
   let isFirstGoal = true;
 
@@ -650,8 +725,8 @@ async function iterativeAgentLoop(conversation) {
       isFirstGoal = false;
     }
 
-    // Create a fresh loop state for this goal
-    const loopState = createLoopState(goal);
+    // Create a fresh loop state for this goal, carrying project context
+    const loopState = createLoopState(goal, projectContext);
 
     try {
       await runReasoningLoop(loopState, conversation.id);
@@ -690,7 +765,7 @@ async function iterativeAgentLoop(conversation) {
 
 // ─── Entry point ──────────────────────────────────────────────────────────────
 
-export async function startIterativeAgentChat(conversationId = null) {
+export async function startIterativeAgentChat(conversationId = null, workingDirectory = process.cwd()) {
   try {
     intro(
       boxen(
@@ -730,7 +805,7 @@ export async function startIterativeAgentChat(conversationId = null) {
       )
     );
 
-    await iterativeAgentLoop(conversation);
+    await iterativeAgentLoop(conversation, workingDirectory);
 
     outro(chalk.green.bold("\n✨ Thanks for using Iterative Agent Mode!"));
   } catch (error) {
