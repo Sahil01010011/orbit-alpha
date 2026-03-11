@@ -7,6 +7,7 @@ import { select, isCancel, cancel } from "@clack/prompts";
 import { startChat } from "../../chat/chat-with-ai.js";
 import { startToolChat } from "../../chat/chat-with-ai-tool.js";
 import { startAgentChat } from "../../chat/chat-with-ai-agent.js";
+import { startIterativeAgentChat } from "../../chat/chat-with-ai-iterative.js";
 import { ChatService } from "../../../service/chat.service.js";
 
 const chatService = new ChatService();
@@ -75,7 +76,7 @@ async function askSessionStart(userId, mode) {
   return selected;
 }
 
-const wakeUpAction = async () => {
+const wakeUpAction = async (options) => {
   const token = await getStoredToken();
 
   if (!token?.access_token) {
@@ -124,8 +125,10 @@ const wakeUpAction = async () => {
       },
       {
         value: "agent",
-        label: "Agentic Mode",
-        hint: "Advanced AI agent (Coming soon)",
+        label: options.iterative ? "Agentic Mode (Iterative Loop)" : "Agentic Mode",
+        hint: options.iterative
+          ? "Reasoning loop: goal → plan → act → reflect"
+          : "Autonomous application generator",
       },
     ],
   });
@@ -148,7 +151,11 @@ const wakeUpAction = async () => {
     }
     case "agent": {
       const conversationId = await askSessionStart(user.id, "agent");
-      await startAgentChat(conversationId);
+      if (options.iterative) {
+        await startIterativeAgentChat(conversationId);
+      } else {
+        await startAgentChat(conversationId);
+      }
       break;
     }
   }
@@ -156,4 +163,5 @@ const wakeUpAction = async () => {
 
 export const wakeUp = new Command("wakeup")
   .description("Wake up the AI")
+  .option("--iterative", "Use iterative agent reasoning loop (goal → plan → act → reflect)")
   .action(wakeUpAction);

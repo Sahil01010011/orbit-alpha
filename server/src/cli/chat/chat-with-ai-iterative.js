@@ -1,0 +1,747 @@
+import chalk from "chalk";
+import boxen from "boxen";
+import { text, isCancel, cancel, intro, outro } from "@clack/prompts";
+import yoctoSpinner from "yocto-spinner";
+import { marked } from "marked";
+import { markedTerminal } from "marked-terminal";
+import { AIService } from "../ai/google-service.js";
+import { ChatService } from "../../service/chat.service.js";
+import { getStoredToken } from "../commands/auth/login.js";
+import prisma from "../../lib/db.js";
+import { z } from "zod";
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const MAX_STEPS = 10;
+const MAX_RETRIES_PER_STEP = 2;
+
+// ─── Marked terminal renderer (same options as other chat files) ───────────────
+
+marked.use(
+  markedTerminal({
+    code: chalk.cyan,
+    blockquote: chalk.gray.italic,
+    heading: chalk.green.bold,
+    firstHeading: chalk.magenta.underline.bold,
+    hr: chalk.reset,
+    listitem: chalk.reset,
+    list: chalk.reset,
+    paragraph: chalk.reset,
+    strong: chalk.bold,
+    em: chalk.italic,
+    codespan: chalk.yellow.bgBlack,
+    del: chalk.dim.gray.strikethrough,
+    link: chalk.blue.underline,
+    href: chalk.blue.underline,
+  })
+);
+
+// ─── Services ─────────────────────────────────────────────────────────────────
+
+const aiService = new AIService();
+const chatService = new ChatService();
+
+// ─── Zod schemas for structured AI outputs ────────────────────────────────────
+
+const PlanSchema = z.object({
+  steps: z
+    .array(z.string())
+    .min(1)
+    .max(MAX_STEPS)
+    .describe(
+      "Ordered list of specific, concrete, executable steps to accomplish the goal"
+    ),
+  rationale: z
+    .string()
+    .describe(
+      "Brief explanation of the overall approach and why these steps achieve the goal"
+    ),
+});
+
+const ReflectionSchema = z.object({
+  assessment: z
+    .string()
+    .describe(
+      "Detailed assessment of what was accomplished in this step and whether it was successful"
+    ),
+  nextAction: z
+    .enum(["proceed", "retry", "terminate"])
+    .describe(
+      'proceed = move to next step; retry = repeat this step (max 2 retries); terminate = goal fully accomplished OR unrecoverable error'
+    ),
+  reason: z
+    .string()
+    .describe("Explanation for why this next action was chosen"),
+  finalOutput: z
+    .string()
+    .optional()
+    .describe(
+      'Assembled final answer for the user — required when nextAction is "terminate" with successful completion'
+    ),
+});
+
+// ─── Loop state ───────────────────────────────────────────────────────────────
+
+/**
+ * Create an in-memory loop state structure for a single goal execution.
+ * @param {string} goal - The original user prompt / goal
+ */
+function createLoopState(goal) {
+  return {
+    goal,
+    plan: [],
+    rationale: "",
+    currentStep: 0,
+    stepResults: [],
+    retryCount: 0,
+    status: "planning", // planning | acting | reflecting | complete | failed
+    finalOutput: null,
+  };
+}
+
+// ─── Logging helpers ──────────────────────────────────────────────────────────
+
+function logLoop(loopState, message) {
+  const tag =
+    loopState.plan.length > 0
+      ? `[${loopState.status}:${loopState.currentStep + 1}/${loopState.plan.length}]`
+      : `[${loopState.status}]`;
+  console.log(chalk.dim(`  ${tag} ${message}`));
+}
+
+// ─── Auth helper (matches pattern from other chat files) ──────────────────────
+
+async function getUserFromToken() {
+  const token = await getStoredToken();
+
+  if (!token?.access_token) {
+    throw new Error("Not authenticated. Please run 'orbit login' first.");
+  }
+
+  const spinner = yoctoSpinner({ text: "Authenticating..." }).start();
+
+  const user = await prisma.user.findFirst({
+    where: {
+      sessions: {
+        some: { token: token.access_token },
+      },
+    },
+  });
+
+  if (!user) {
+    spinner.error("User not found");
+    throw new Error("User not found. Please login again.");
+  }
+
+  spinner.success(`Welcome back, ${user.name}!`);
+  return user;
+}
+
+// ─── Phase 1: Planning ────────────────────────────────────────────────────────
+
+async function generatePlan(loopState) {
+  const spinner = yoctoSpinner({
+    text: "🧠 Generating execution plan...",
+  }).start();
+
+  try {
+    const plan = await aiService.generateStructured(
+      PlanSchema,
+      `You are an AI reasoning agent. Break down the following goal into specific, concrete, executable steps.
+
+Goal: ${loopState.goal}
+
+Requirements:
+- Generate between 2 and ${MAX_STEPS} steps
+- Each step must be specific and actionable on its own
+- Steps should build on each other logically
+- Focus entirely on achieving the stated goal
+
+Provide a clear rationale explaining your overall approach.`
+    );
+
+    loopState.plan = plan.steps;
+    loopState.rationale = plan.rationale;
+    loopState.status = "acting";
+
+    spinner.success(`Plan generated: ${plan.steps.length} steps`);
+    logLoop(loopState, `Plan created with ${plan.steps.length} steps`);
+    return plan;
+  } catch (error) {
+    spinner.error("Planning failed");
+    logLoop(loopState, `Planning error: ${error.message}`);
+    throw error;
+  }
+}
+
+// ─── Display helpers ──────────────────────────────────────────────────────────
+
+function displayPlan(loopState) {
+  const stepLines = loopState.plan
+    .map((step, i) => `  ${chalk.cyan(`Step ${i + 1}:`)} ${step}`)
+    .join("\n");
+
+  console.log(
+    boxen(
+      `${chalk.bold("Goal:")} ${chalk.white(loopState.goal)}\n\n` +
+        `${chalk.bold("Approach:")} ${chalk.gray(loopState.rationale)}\n\n` +
+        `${chalk.bold("Steps:")}\n${stepLines}`,
+      {
+        padding: 1,
+        margin: { top: 1, bottom: 1 },
+        borderStyle: "round",
+        borderColor: "cyan",
+        title: `📋 Execution Plan (${loopState.plan.length} steps)`,
+        titleAlignment: "center",
+      }
+    )
+  );
+}
+
+function displayStepHeader(loopState) {
+  const stepIndex = loopState.currentStep;
+  const step = loopState.plan[stepIndex];
+  const stepNum = stepIndex + 1;
+  const total = loopState.plan.length;
+  const filled = "█".repeat(stepNum);
+  const empty = "░".repeat(Math.max(0, total - stepNum));
+  const progressBar = chalk.green(filled) + chalk.gray(empty);
+
+  console.log(
+    "\n" +
+      boxen(
+        `${progressBar} ${chalk.bold(`${stepNum} / ${total}`)}\n\n` +
+          `${chalk.bold("Executing:")} ${chalk.white(step)}`,
+        {
+          padding: 1,
+          borderStyle: "round",
+          borderColor: "yellow",
+          title: `⚡ Step ${stepNum} of ${total}`,
+          titleAlignment: "center",
+        }
+      )
+  );
+}
+
+function displayReflection(reflection, stepNum) {
+  const actionConfig = {
+    proceed: {
+      color: chalk.green,
+      emoji: "➡️ ",
+      label: "Proceed to next step",
+      border: "green",
+    },
+    retry: {
+      color: chalk.yellow,
+      emoji: "🔄 ",
+      label: "Retry this step",
+      border: "yellow",
+    },
+    terminate: {
+      color: chalk.magenta,
+      emoji: "🏁",
+      label: "Terminate — goal complete",
+      border: "magenta",
+    },
+  };
+
+  const cfg = actionConfig[reflection.nextAction] || actionConfig.proceed;
+
+  console.log(
+    boxen(
+      `${chalk.bold("Assessment:")} ${reflection.assessment}\n\n` +
+        `${chalk.bold("Decision:")} ${cfg.color(
+          `${cfg.emoji}  ${cfg.label}`
+        )}\n` +
+        `${chalk.bold("Reason:")} ${chalk.gray(reflection.reason)}`,
+      {
+        padding: 1,
+        margin: { top: 1, bottom: 1 },
+        borderStyle: "round",
+        borderColor: cfg.border,
+        title: `🔍 Reflection — Step ${stepNum}`,
+        titleAlignment: "center",
+      }
+    )
+  );
+}
+
+function displayFinalOutput(loopState) {
+  const content = loopState.finalOutput || "No output available.";
+  const rendered = marked.parse(content);
+  const statusLabel =
+    loopState.status === "complete"
+      ? chalk.green("✅ COMPLETE")
+      : chalk.red("❌ FAILED");
+
+  console.log(
+    boxen(rendered.trim(), {
+      padding: 1,
+      margin: { top: 1, bottom: 1 },
+      borderStyle: "double",
+      borderColor: loopState.status === "complete" ? "green" : "red",
+      title: `${statusLabel}  Final Output`,
+      titleAlignment: "center",
+    })
+  );
+}
+
+// ─── Phase 2: Act ─────────────────────────────────────────────────────────────
+
+async function executeStep(loopState) {
+  const stepIndex = loopState.currentStep;
+  const step = loopState.plan[stepIndex];
+  const stepNum = stepIndex + 1;
+  const total = loopState.plan.length;
+
+  loopState.status = "acting";
+  displayStepHeader(loopState);
+
+  const previousContext =
+    loopState.stepResults.length > 0
+      ? `\nPrevious step results:\n${loopState.stepResults
+          .map((r, i) => `Step ${i + 1} result:\n${r}`)
+          .join("\n\n")}\n`
+      : "";
+
+  const retryNote =
+    loopState.retryCount > 0
+      ? `\nNote: This is retry attempt ${loopState.retryCount} for this step. The previous attempt was deemed insufficient — please improve your response.\n`
+      : "";
+
+  const messages = [
+    {
+      role: "user",
+      content:
+        `You are an AI reasoning agent executing a step as part of a larger plan.\n\n` +
+        `Goal: ${loopState.goal}\n\n` +
+        `Full plan:\n${loopState.plan
+          .map((s, i) => `${i + 1}. ${s}`)
+          .join("\n")}` +
+        previousContext +
+        retryNote +
+        `\nNow execute step ${stepNum}/${total}: ${step}\n\n` +
+        `Provide a thorough, complete, and specific result for this step. Be precise and actionable.`,
+    },
+  ];
+
+  const spinner = yoctoSpinner({
+    text: `Executing step ${stepNum}/${total}...`,
+    color: "yellow",
+  }).start();
+
+  let stepResult = "";
+  let isFirstChunk = true;
+
+  try {
+    // Uses the existing sendMessage / tool-calling infrastructure
+    const result = await aiService.sendMessage(messages, (chunk) => {
+      if (isFirstChunk) {
+        spinner.stop();
+        console.log(
+          "\n" + chalk.bold(`  📝 Step ${stepNum} output:`)
+        );
+        console.log(chalk.gray("  " + "─".repeat(55)));
+        isFirstChunk = false;
+      }
+      stepResult += chunk;
+      process.stdout.write(chalk.white(chunk));
+    });
+
+    if (isFirstChunk) {
+      spinner.stop();
+    }
+
+    console.log("\n" + chalk.gray("  " + "─".repeat(55)) + "\n");
+
+    const content = result.content || stepResult;
+    logLoop(loopState, `Step ${stepNum} executed (${content.length} chars)`);
+    return content;
+  } catch (error) {
+    spinner.error(`Step ${stepNum} execution failed`);
+    logLoop(loopState, `Step ${stepNum} error: ${error.message}`);
+    throw error;
+  }
+}
+
+// ─── Phase 3: Reflect ─────────────────────────────────────────────────────────
+
+async function reflectOnStep(loopState, stepResult) {
+  const stepIndex = loopState.currentStep;
+  const step = loopState.plan[stepIndex];
+  const stepNum = stepIndex + 1;
+  const total = loopState.plan.length;
+  const isLastStep = stepIndex >= total - 1;
+
+  loopState.status = "reflecting";
+
+  const spinner = yoctoSpinner({
+    text: `Reflecting on step ${stepNum}/${total}...`,
+    color: "cyan",
+  }).start();
+
+  try {
+    const reflection = await aiService.generateStructured(
+      ReflectionSchema,
+      `You are an AI reasoning agent reviewing the result of an execution step.
+
+Goal: ${loopState.goal}
+
+Full plan:
+${loopState.plan.map((s, i) => `${i + 1}. ${s}`).join("\n")}
+
+Current step (${stepNum}/${total}): ${step}
+
+Step result:
+${stepResult}
+
+Steps completed so far: ${stepNum} of ${total}
+${
+  isLastStep
+    ? "NOTE: This was the LAST step in the plan."
+    : `Next step would be: ${loopState.plan[stepIndex + 1]}`
+}
+
+Evaluate the step result and decide:
+- "proceed": Step was successful, move to the next step.
+- "retry": Step result was incomplete or unsatisfactory (max ${MAX_RETRIES_PER_STEP} retries allowed per step).
+- "terminate": The goal is fully accomplished — include the assembled final answer in finalOutput. OR there is an unrecoverable error.
+${
+  isLastStep
+    ? 'Since this was the LAST planned step, use "terminate" and include the complete finalOutput assembling all step results.'
+    : ""
+}
+
+Provide a detailed assessment, a clear decision, and your reasoning.`
+    );
+
+    spinner.success(`Reflection: ${reflection.nextAction}`);
+    logLoop(
+      loopState,
+      `Reflection decision: ${reflection.nextAction} — ${reflection.reason}`
+    );
+    return reflection;
+  } catch (error) {
+    spinner.error("Reflection failed");
+    logLoop(loopState, `Reflection error: ${error.message}`);
+
+    // Graceful fallback so the loop can continue
+    const fallbackAction = isLastStep ? "terminate" : "proceed";
+    return {
+      assessment: "Reflection could not be completed due to an error.",
+      nextAction: fallbackAction,
+      reason: "Reflection error; using default fallback action.",
+      finalOutput: isLastStep ? stepResult : undefined,
+    };
+  }
+}
+
+// ─── Main reasoning loop ──────────────────────────────────────────────────────
+
+/**
+ * Run the full goal → plan → act → observe → reflect → repeat loop.
+ * @param {Object} loopState - In-memory loop state for this goal
+ * @param {string} conversationId - DB conversation ID for persistence
+ */
+async function runReasoningLoop(loopState, conversationId) {
+  // ── Phase 1: Planning ──────────────────────────────────────────────────────
+  logLoop(loopState, "Starting planning phase");
+  await generatePlan(loopState);
+  displayPlan(loopState);
+
+  // Persist the plan as an assistant message
+  await chatService.addMessage(
+    conversationId,
+    "assistant",
+    `[Plan Generated]\nGoal: ${loopState.goal}\nRationale: ${loopState.rationale}\n\nSteps:\n${loopState.plan
+      .map((s, i) => `${i + 1}. ${s}`)
+      .join("\n")}`
+  );
+
+  // ── Phase 2: Act → Observe → Reflect loop ─────────────────────────────────
+  let totalStepsExecuted = 0;
+
+  while (loopState.status !== "complete" && loopState.status !== "failed") {
+    const stepIndex = loopState.currentStep;
+
+    // Guard: maximum total steps executed (includes retries, preventing infinite loops)
+    if (totalStepsExecuted >= MAX_STEPS) {
+      loopState.status = "failed";
+      loopState.finalOutput =
+        `Maximum step limit (${MAX_STEPS}) reached.\n\n` +
+        `Work completed so far:\n\n` +
+        loopState.stepResults
+          .map((r, i) => `**Step ${i + 1}:**\n${r}`)
+          .join("\n\n");
+      logLoop(loopState, `Terminating: max steps (${MAX_STEPS}) reached`);
+      break;
+    }
+
+    // Guard: all planned steps have been processed
+    if (stepIndex >= loopState.plan.length) {
+      loopState.status = "complete";
+      loopState.finalOutput =
+        loopState.stepResults[loopState.stepResults.length - 1] ||
+        "All planned steps completed.";
+      logLoop(loopState, "All planned steps completed");
+      break;
+    }
+
+    totalStepsExecuted++;
+
+    // ── Act ────────────────────────────────────────────────────────────────
+    let stepResult;
+    try {
+      stepResult = await executeStep(loopState);
+    } catch (error) {
+      loopState.status = "failed";
+      loopState.finalOutput = `Unrecoverable error at step ${
+        stepIndex + 1
+      }: ${error.message}`;
+      logLoop(loopState, `Fatal step error: ${error.message}`);
+
+      await chatService.addMessage(
+        conversationId,
+        "assistant",
+        `[Step ${stepIndex + 1} Failed — Unrecoverable]\n${error.message}`
+      );
+      break;
+    }
+
+    // Record observation
+    loopState.stepResults.push(stepResult);
+
+    // ── Reflect ────────────────────────────────────────────────────────────
+    const reflection = await reflectOnStep(loopState, stepResult);
+    displayReflection(reflection, stepIndex + 1);
+
+    // Persist step + reflection
+    await chatService.addMessage(
+      conversationId,
+      "assistant",
+      `[Step ${stepIndex + 1}/${loopState.plan.length}]\n` +
+        `Action: ${loopState.plan[stepIndex]}\n` +
+        `Result: ${stepResult}\n\n` +
+        `Reflection:\n` +
+        `  Assessment: ${reflection.assessment}\n` +
+        `  Decision: ${reflection.nextAction}\n` +
+        `  Reason: ${reflection.reason}`
+    );
+
+    // ── Apply decision ─────────────────────────────────────────────────────
+    if (reflection.nextAction === "terminate") {
+      loopState.status = "complete";
+      loopState.finalOutput =
+        reflection.finalOutput ||
+        stepResult ||
+        loopState.stepResults.join("\n\n");
+      logLoop(loopState, "Model signalled termination — goal complete");
+    } else if (reflection.nextAction === "retry") {
+      loopState.retryCount++;
+
+      if (loopState.retryCount >= MAX_RETRIES_PER_STEP) {
+        logLoop(
+          loopState,
+          `Max retries (${MAX_RETRIES_PER_STEP}) reached for step ${
+            stepIndex + 1
+          }, proceeding`
+        );
+        loopState.retryCount = 0;
+        loopState.currentStep++;
+      } else {
+        logLoop(
+          loopState,
+          `Retrying step ${stepIndex + 1} (retry ${loopState.retryCount}/${MAX_RETRIES_PER_STEP})`
+        );
+        // Remove the unsatisfactory result so context stays clean
+        loopState.stepResults.pop();
+      }
+    } else {
+      // proceed
+      loopState.retryCount = 0;
+      loopState.currentStep++;
+      logLoop(loopState, `Proceeding to step ${loopState.currentStep + 1}`);
+    }
+  }
+
+  return loopState;
+}
+
+// ─── Interactive goal loop ────────────────────────────────────────────────────
+
+async function iterativeAgentLoop(conversation) {
+  console.log(
+    boxen(
+      `${chalk.cyan.bold("How it works:")}\n\n` +
+        `  ${chalk.gray("1.")} ${chalk.white("You provide a goal")}\n` +
+        `  ${chalk.gray("2.")} ${chalk.white(
+          "The agent generates a step-by-step plan"
+        )}\n` +
+        `  ${chalk.gray("3.")} ${chalk.white(
+          "Each step is executed and observed"
+        )}\n` +
+        `  ${chalk.gray("4.")} ${chalk.white(
+          "The agent reflects and decides: proceed / retry / terminate"
+        )}\n` +
+        `  ${chalk.gray("5.")} ${chalk.white(
+          "Final output is presented when the goal is complete"
+        )}\n\n` +
+        chalk.dim(
+          `Maximum ${MAX_STEPS} steps per goal.  Type "exit" to quit.`
+        ),
+      {
+        padding: 1,
+        margin: { bottom: 1 },
+        borderStyle: "round",
+        borderColor: "cyan",
+        title: "🔄 Iterative Reasoning Loop",
+        titleAlignment: "center",
+      }
+    )
+  );
+
+  let isFirstGoal = true;
+
+  while (true) {
+    const userInput = await text({
+      message: chalk.cyan("🎯 Enter your goal"),
+      placeholder: "Describe what you want to achieve in detail...",
+      validate(value) {
+        if (!value || value.trim().length === 0) {
+          return "Goal cannot be empty";
+        }
+        if (value.trim().length < 5) {
+          return "Please describe your goal in more detail";
+        }
+      },
+    });
+
+    if (isCancel(userInput)) {
+      console.log(chalk.yellow("\n👋 Agent session cancelled\n"));
+      process.exit(0);
+    }
+
+    if (userInput.trim().toLowerCase() === "exit") {
+      console.log(chalk.yellow("\n👋 Iterative agent session ended\n"));
+      break;
+    }
+
+    const goal = userInput.trim();
+
+    // Display the goal
+    console.log(
+      boxen(chalk.white(goal), {
+        padding: 1,
+        margin: { top: 1, bottom: 1 },
+        borderStyle: "round",
+        borderColor: "blue",
+        title: "🎯 Goal",
+        titleAlignment: "left",
+      })
+    );
+
+    // Persist user message
+    await chatService.addMessage(conversation.id, "user", goal);
+
+    // Update conversation title on first goal
+    if (isFirstGoal) {
+      const title = goal.slice(0, 50) + (goal.length > 50 ? "..." : "");
+      await chatService.updateTitle(conversation.id, title);
+      isFirstGoal = false;
+    }
+
+    // Create a fresh loop state for this goal
+    const loopState = createLoopState(goal);
+
+    try {
+      await runReasoningLoop(loopState, conversation.id);
+      displayFinalOutput(loopState);
+
+      // Persist final output summary
+      if (loopState.finalOutput) {
+        await chatService.addMessage(
+          conversation.id,
+          "assistant",
+          `[Final Output]\n${loopState.finalOutput}`
+        );
+      }
+
+      if (loopState.status === "complete") {
+        console.log(
+          chalk.green.bold("\n✅ Goal accomplished! Ready for next goal.\n")
+        );
+      } else {
+        console.log(
+          chalk.yellow.bold(
+            "\n⚠️  Loop ended without fully completing the goal.\n"
+          )
+        );
+      }
+    } catch (error) {
+      console.log(chalk.red(`\n❌ Agent error: ${error.message}\n`));
+      await chatService.addMessage(
+        conversation.id,
+        "assistant",
+        `[Error] ${error.message}`
+      );
+    }
+  }
+}
+
+// ─── Entry point ──────────────────────────────────────────────────────────────
+
+export async function startIterativeAgentChat(conversationId = null) {
+  try {
+    intro(
+      boxen(
+        chalk.bold.cyan("🔄 Orbit AI — Iterative Agent Mode\n\n") +
+          chalk.gray("Goal → Plan → Act → Observe → Reflect → Repeat"),
+        {
+          padding: 1,
+          borderStyle: "double",
+          borderColor: "cyan",
+        }
+      )
+    );
+
+    const user = await getUserFromToken();
+
+    const spinner = yoctoSpinner({ text: "Loading conversation..." }).start();
+    const conversation = await chatService.getOrCreateConversation(
+      user.id,
+      conversationId,
+      "agent"
+    );
+    spinner.success("Conversation loaded");
+
+    console.log(
+      boxen(
+        `${chalk.bold("Conversation:")} ${conversation.title}\n` +
+          `${chalk.gray("ID:")} ${conversation.id}\n` +
+          `${chalk.gray("Mode:")} ${chalk.cyan("Iterative Agent")}`,
+        {
+          padding: 1,
+          margin: { top: 1, bottom: 1 },
+          borderStyle: "round",
+          borderColor: "cyan",
+          title: "🔄 Session Info",
+          titleAlignment: "center",
+        }
+      )
+    );
+
+    await iterativeAgentLoop(conversation);
+
+    outro(chalk.green.bold("\n✨ Thanks for using Iterative Agent Mode!"));
+  } catch (error) {
+    console.log(
+      boxen(chalk.red(`❌ Error: ${error.message}`), {
+        padding: 1,
+        margin: 1,
+        borderStyle: "round",
+        borderColor: "red",
+      })
+    );
+    process.exit(1);
+  }
+}
