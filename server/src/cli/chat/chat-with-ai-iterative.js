@@ -796,7 +796,8 @@ export async function startIterativeAgentChat(conversationId = null, workingDire
       boxen(
         `${chalk.bold("Conversation:")} ${conversation.title}\n` +
           `${chalk.gray("ID:")} ${conversation.id}\n` +
-          `${chalk.gray("Mode:")} ${chalk.cyan("Iterative Agent")}`,
+          `${chalk.gray("Mode:")} ${chalk.cyan("Iterative Agent")}\n` +
+          `${chalk.gray("Output Directory:")} ${chalk.white(workingDirectory)}`,
         {
           padding: 1,
           margin: { top: 1, bottom: 1 },

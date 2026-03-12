@@ -33,7 +33,7 @@ async function getUserFromToken() {
   return user;
 }
 
-async function initConversation(userId, conversationId = null) {
+async function initConversation(userId, conversationId = null, outputDir) {
   const conversation = await chatService.getOrCreateConversation(
     userId,
     conversationId,
@@ -44,7 +44,7 @@ async function initConversation(userId, conversationId = null) {
     `${chalk.bold("Conversation")}: ${conversation.title}\n` +
     `${chalk.gray("ID:")} ${conversation.id}\n` +
     `${chalk.gray("Mode:")} ${chalk.magenta("Agent (Code Generator)")}\n` +
-    `${chalk.cyan("Working Directory:")} ${process.cwd()}`,
+    `${chalk.cyan("Output Directory:")} ${outputDir}`,
     {
       padding: 1,
       margin: { top: 1, bottom: 1 },
@@ -64,7 +64,7 @@ async function saveMessage(conversationId, role, content) {
   return await chatService.addMessage(conversationId, role, content);
 }
 
-async function agentLoop(conversation) {
+async function agentLoop(conversation, outputDir) {
   const helpBox = boxen(
     `${chalk.cyan.bold("What can the agent do?")}\n\n` +
     `${chalk.gray('• Generate complete applications from descriptions')}\n` +
@@ -129,7 +129,7 @@ async function agentLoop(conversation) {
       const result = await generateApplication(
         userInput,
         aiService,
-        process.cwd()
+        outputDir
       );
 
       if (result && result.success) {
@@ -173,7 +173,7 @@ async function agentLoop(conversation) {
   }
 }
 
-export async function startAgentChat(conversationId = null) {
+export async function startAgentChat(conversationId = null, outputDir = process.cwd()) {
   try {
     intro(
       boxen(
@@ -191,7 +191,7 @@ export async function startAgentChat(conversationId = null) {
     
     // Warning about file system access
     const shouldContinue = await confirm({
-      message: chalk.yellow("⚠️  The agent will create files and folders in the current directory. Continue?"),
+      message: chalk.yellow(`⚠️  The agent will create files and folders in "${outputDir}". Continue?`),
       initialValue: true,
     });
 
@@ -200,8 +200,8 @@ export async function startAgentChat(conversationId = null) {
       process.exit(0);
     }
     
-    const conversation = await initConversation(user.id, conversationId);
-    await agentLoop(conversation);
+    const conversation = await initConversation(user.id, conversationId, outputDir);
+    await agentLoop(conversation, outputDir);
     
     outro(chalk.green.bold("\n✨ Thanks for using Agent Mode!"));
     
