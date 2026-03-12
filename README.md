@@ -84,7 +84,25 @@ This creates the tables in your database that Orbital needs to store conversatio
 cd server && npx prisma migrate deploy && cd ..
 ```
 
-### Step 6 — Start the backend server
+### Step 6 — Set up the client
+
+The client is a Next.js web app used for GitHub OAuth and device authentication flows. You need to install its dependencies before the full stack will work.
+
+```bash
+cd client && npm install && cd ..
+```
+
+The client does not require any additional environment variables for local development. It connects to the backend server at `http://localhost:3000` by default.
+
+To start the client development server, open a **new terminal window** and run:
+
+```bash
+cd client && npm run dev
+```
+
+The client will be available at `http://localhost:3001` (Next.js picks the next free port if 3000 is taken by the backend).
+
+### Step 7 — Start the backend server
 
 The backend is an Express server that handles authentication and talks to the AI on behalf of the CLI.
 
@@ -94,7 +112,7 @@ cd server && npm run dev
 
 Leave this terminal window open. The server needs to be running whenever you use the CLI.
 
-### Step 7 — Install the CLI globally
+### Step 8 — Install the CLI globally
 
 Open a **new terminal window** (keep the server running in the first one), then run:
 
@@ -104,7 +122,7 @@ npm install -g .
 
 This makes the `orbit` command available everywhere on your machine.
 
-### Step 8 — Run Orbital
+### Step 9 — Run Orbital
 
 ```bash
 orbit wakeup
