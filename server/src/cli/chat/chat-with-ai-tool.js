@@ -15,6 +15,7 @@ import {
   getEnabledToolNames,
   resetTools 
 } from "../../config/tool.config.js";
+import { ORBITAL_SYSTEM_PROMPT } from "../../config/agent.config.js";
 
 // Configure marked for terminal
 marked.use(
@@ -214,9 +215,10 @@ async function getAIResponse(conversationId) {
         }
         fullResponse += chunk;
       },
-      tools,
-      (toolCall) => {
-        toolCallsDetected.push(toolCall);
+      {
+        tools,
+        onToolCall: (toolCall) => { toolCallsDetected.push(toolCall); },
+        system: ORBITAL_SYSTEM_PROMPT,
       }
     );
     

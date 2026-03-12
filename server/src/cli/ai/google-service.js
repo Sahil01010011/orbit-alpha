@@ -19,17 +19,20 @@ export class AIService {
    * Send a message and get streaming response
    * @param {Array} messages - Array of message objects {role, content}
    * @param {Function} onChunk - Callback for each text chunk
-   * @param {Object} tools - Optional tools object
-   * @param {Function} onToolCall - Callback for tool calls
+   * @param {Object} [options] - Optional configuration
+   * @param {Object} [options.tools] - Tools to enable for this request
+   * @param {Function} [options.onToolCall] - Callback for tool calls
+   * @param {string} [options.system] - System prompt to separate from user messages
    * @returns {Promise<Object>} Full response with content, tool calls, and usage
    */
-  async sendMessage(messages, onChunk, tools = undefined, onToolCall = null) {
+  async sendMessage(messages, onChunk, { tools, onToolCall, system } = {}) {
     try {
       const streamConfig = {
         model: this.model,
         messages: messages,
         temperature: config.temperature,
         maxTokens: config.maxTokens,
+        ...(system && { system }),
       };
 
       // Add tools if provided with maxSteps for multi-step tool calling
@@ -102,7 +105,7 @@ export class AIService {
     let fullResponse = "";
     const result = await this.sendMessage(messages, (chunk) => {
       fullResponse += chunk;
-    }, tools);
+    }, { tools });
     return result.content;
   }
 
@@ -110,14 +113,16 @@ export class AIService {
    * Generate structured output using a Zod schema
    * @param {Object} schema - Zod schema
    * @param {string} prompt - Prompt for generation
+   * @param {string} [system] - Optional system prompt to separate from the generation prompt
    * @returns {Promise<Object>} Parsed object matching the schema
    */
-  async generateStructured(schema, prompt) {
+  async generateStructured(schema, prompt, system = undefined) {
     try {
       const result = await generateObject({
         model: this.model,
         schema: schema,
         prompt: prompt,
+        ...(system && { system }),
       });
       
       return result.object;

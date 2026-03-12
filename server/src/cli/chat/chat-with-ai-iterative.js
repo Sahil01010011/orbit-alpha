@@ -10,6 +10,7 @@ import { getStoredToken } from "../commands/auth/login.js";
 import prisma from "../../lib/db.js";
 import { z } from "zod";
 import { readProjectContext, formatContextForPrompt } from "../contextReader.js";
+import { ORBITAL_SYSTEM_PROMPT } from "../../config/agent.config.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -165,7 +166,8 @@ Requirements:
 - Focus entirely on achieving the stated goal
 - Take the project context above into account when planning — use the correct language, framework, and existing structure
 
-Provide a clear rationale explaining your overall approach.`
+Provide a clear rationale explaining your overall approach.`,
+      ORBITAL_SYSTEM_PROMPT
     );
 
     loopState.plan = plan.steps;
@@ -405,7 +407,7 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
       }
       stepResult += chunk;
       process.stdout.write(chalk.white(chunk));
-    });
+    }, { system: ORBITAL_SYSTEM_PROMPT });
 
     if (isFirstChunk) {
       spinner.stop();
@@ -471,7 +473,8 @@ ${
     : ""
 }
 
-Provide a detailed assessment, a clear decision, and your reasoning.`
+Provide a detailed assessment, a clear decision, and your reasoning.`,
+      ORBITAL_SYSTEM_PROMPT
     );
 
     spinner.success(`Reflection: ${reflection.nextAction}`);
