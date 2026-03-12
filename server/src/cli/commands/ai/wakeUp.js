@@ -1,9 +1,11 @@
 import chalk from "chalk";
 import { Command } from "commander";
 import yoctoSpinner from "yocto-spinner";
+import path from "path";
+import { promises as fs } from "fs";
 import { getStoredToken } from "../auth/login.js";
 import prisma from "../../../lib/db.js";
-import { select, isCancel, cancel } from "@clack/prompts";
+import { select, text, confirm, isCancel, cancel } from "@clack/prompts";
 import { startChat } from "../../chat/chat-with-ai.js";
 import { startToolChat } from "../../chat/chat-with-ai-tool.js";
 import { startAgentChat } from "../../chat/chat-with-ai-agent.js";
@@ -11,6 +13,47 @@ import { startIterativeAgentChat } from "../../chat/chat-with-ai-iterative.js";
 import { ChatService } from "../../../service/chat.service.js";
 
 const chatService = new ChatService();
+
+/**
+ * Prompt the user for an output directory.
+ * Defaults to the directory where `orbit` was originally invoked.
+ * If the path does not exist the user is offered to create it.
+ * @param {string} invocationDir - The directory captured at CLI startup
+ * @returns {Promise<string>} Resolved absolute output path
+ */
+async function promptOutputDirectory(invocationDir) {
+  const answer = await text({
+    message: "Where should the output be created?",
+    placeholder: invocationDir,
+    defaultValue: invocationDir,
+  });
+
+  if (isCancel(answer)) {
+    cancel(chalk.yellow("Cancelled"));
+    process.exit(0);
+  }
+
+  const outputDir = path.resolve(answer || invocationDir);
+
+  try {
+    await fs.access(outputDir);
+  } catch {
+    const shouldCreate = await confirm({
+      message: `Directory "${outputDir}" does not exist. Create it?`,
+      initialValue: true,
+    });
+
+    if (isCancel(shouldCreate) || !shouldCreate) {
+      cancel(chalk.yellow("Cancelled"));
+      process.exit(0);
+    }
+
+    await fs.mkdir(outputDir, { recursive: true });
+    console.log(chalk.green(`✓ Created directory: ${outputDir}`));
+  }
+
+  return outputDir;
+}
 
 /**
  * Ask the user whether to start a new conversation or resume an existing one
@@ -76,7 +119,7 @@ async function askSessionStart(userId, mode) {
   return selected;
 }
 
-const wakeUpAction = async (options) => {
+const wakeUpAction = async (options, invocationDir) => {
   const token = await getStoredToken();
 
   if (!token?.access_token) {
@@ -150,18 +193,21 @@ const wakeUpAction = async (options) => {
       break;
     }
     case "agent": {
+      const outputDir = await promptOutputDirectory(invocationDir);
       const conversationId = await askSessionStart(user.id, "agent");
       if (options.iterative) {
-        await startIterativeAgentChat(conversationId, process.cwd());
+        await startIterativeAgentChat(conversationId, outputDir);
       } else {
-        await startAgentChat(conversationId);
+        await startAgentChat(conversationId, outputDir);
       }
       break;
     }
   }
 };
 
-export const wakeUp = new Command("wakeup")
-  .description("Wake up the AI")
-  .option("--iterative", "Use iterative agent reasoning loop (goal → plan → act → reflect)")
-  .action(wakeUpAction);
+export function createWakeUpCommand(invocationDir) {
+  return new Command("wakeup")
+    .description("Wake up the AI")
+    .option("--iterative", "Use iterative agent reasoning loop (goal → plan → act → reflect)")
+    .action((options) => wakeUpAction(options, invocationDir));
+}

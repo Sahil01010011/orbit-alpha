@@ -4,12 +4,19 @@ import dotenv from "dotenv";
 import chalk from "chalk";
 import figlet from "figlet";
 import { Command } from "commander";
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 import { login, logout, whoami } from "./commands/auth/login.js";
-import { wakeUp } from "./commands/ai/wakeUp.js";
+import { createWakeUpCommand } from "./commands/ai/wakeUp.js";
 import { history } from "./commands/history/history.js";
 
+// Capture the directory where `orbit` was invoked, before any async work.
+const INVOCATION_DIR = process.cwd();
 
-dotenv.config(); 
+// Resolve .env relative to this script file so it works from any directory.
+const currentFilePath = fileURLToPath(import.meta.url);
+const currentDirPath = dirname(currentFilePath);
+dotenv.config({ path: resolve(currentDirPath, "../../../.env") });
 
 async function main() {
     console.log(
@@ -31,7 +38,7 @@ async function main() {
     .addCommand(login)
     .addCommand(logout)
     .addCommand(whoami)
-    .addCommand(wakeUp)
+    .addCommand(createWakeUpCommand(INVOCATION_DIR))
     .addCommand(history)
 
     program.action(() => {
