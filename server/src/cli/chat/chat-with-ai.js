@@ -8,6 +8,7 @@ import { AIService } from "../ai/google-service.js";
 import { ChatService } from "../../service/chat.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
 import prisma from "../../lib/db.js";
+import { ORBITAL_SYSTEM_PROMPT } from "../../config/agent.config.js";
 
 // Configure marked to use terminal renderer
 marked.use(
@@ -151,7 +152,7 @@ async function getAIResponse(conversationId) {
         isFirstChunk = false;
       }
       fullResponse += chunk;
-    });
+    }, { system: ORBITAL_SYSTEM_PROMPT });
     
     // Now render the complete markdown response
     console.log("\n");
