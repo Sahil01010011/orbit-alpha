@@ -84,17 +84,19 @@ This creates the tables in your database that Orbital needs to store conversatio
 cd server && npx prisma migrate deploy && cd ..
 ```
 
-### Step 6 — Set up the client
+### Step 6 — Client Setup
 
-The client is a Next.js web app used for GitHub OAuth and device authentication flows. You need to install its dependencies before the full stack will work.
+The client is a Next.js web app used for GitHub OAuth and device authentication flows. Both the server and the client must be running simultaneously for the tool to work.
+
+**Install client dependencies:**
 
 ```bash
 cd client && npm install && cd ..
 ```
 
-The client does not require any additional environment variables for local development. It connects to the backend server at `http://localhost:3000` by default.
+**Environment variables:** The client does not require any additional environment variables for local development. It connects to the backend server at `http://localhost:3000` by default.
 
-To start the client development server, open a **new terminal window** and run:
+**Start the client:** Open a **new terminal window** and run:
 
 ```bash
 cd client && npm run dev
@@ -114,9 +116,10 @@ Leave this terminal window open. The server needs to be running whenever you use
 
 ### Step 8 — Install the CLI globally
 
-Open a **new terminal window** (keep the server running in the first one), then run:
+Open a **new terminal window** (keep the server running in the first one), navigate to the `orbit-alpha` directory, then run:
 
 ```bash
+cd orbit-alpha
 npm install -g .
 ```
 

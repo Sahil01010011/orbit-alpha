@@ -48,7 +48,7 @@ function formatDate(date) {
   });
 }
 
-async function historyAction() {
+export async function historyAction() {
   try {
     intro(
       boxen(chalk.bold.cyan("📜 Conversation History"), {

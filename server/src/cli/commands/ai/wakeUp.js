@@ -11,6 +11,7 @@ import { startToolChat } from "../../chat/chat-with-ai-tool.js";
 import { startAgentChat } from "../../chat/chat-with-ai-agent.js";
 import { startIterativeAgentChat } from "../../chat/chat-with-ai-iterative.js";
 import { ChatService } from "../../../service/chat.service.js";
+import { historyAction } from "../history/history.js";
 
 const chatService = new ChatService();
 
@@ -173,6 +174,11 @@ const wakeUpAction = async (options, invocationDir) => {
           ? "Reasoning loop: goal → plan → act → reflect"
           : "Autonomous application generator",
       },
+      {
+        value: "history",
+        label: "View conversation history",
+        hint: "Browse and resume past conversations",
+      },
     ],
   });
 
@@ -200,6 +206,10 @@ const wakeUpAction = async (options, invocationDir) => {
       } else {
         await startAgentChat(conversationId, outputDir);
       }
+      break;
+    }
+    case "history": {
+      await historyAction();
       break;
     }
   }

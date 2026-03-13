@@ -41,9 +41,10 @@ async function main() {
     .addCommand(createWakeUpCommand(INVOCATION_DIR))
     .addCommand(history)
 
-    program.action(() => {
-        program.help();
-    });
+    if (process.argv.slice(2).length === 0) {
+        program.outputHelp();
+        process.exit(0);
+    }
 
     program.parse();
 
