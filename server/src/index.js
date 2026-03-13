@@ -1,6 +1,6 @@
 import dotenv from "dotenv"
 import express from "express";
-import { toNodeHandler } from "better-auth/node";
+import { toNodeHandler, fromNodeHeaders } from "better-auth/node";
 import cors from "cors";
 import {auth} from "./lib/auth.js";
 import conversationRoutes from "./routes/conversation.routes.js";
