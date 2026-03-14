@@ -12,6 +12,7 @@ import prisma from "../../lib/db.js";
 import { z } from "zod";
 import { readProjectContext, formatContextForPrompt } from "../contextReader.js";
 import { ORBITAL_SYSTEM_PROMPT } from "../../config/agent.config.js";
+import { getToolSchemas } from "../../tools/index.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -93,10 +94,11 @@ const ReflectionSchema = z.object({
  * @param {string|null} taskId - Existing AgentTask ID for resume (null for new tasks)
  * @param {object} [resume] - Partial state to restore when resuming (plan, currentStep, stepResults)
  */
-function createLoopState(goal, projectContext = null, taskId = null, resume = {}) {
+function createLoopState(goal, projectContext = null, taskId = null, resume = {}, outputDirectory = null) {
   return {
     goal,
     projectContext,
+    outputDirectory: outputDirectory || projectContext?.workingDirectory || process.cwd(),
     plan: resume.plan || [],
     rationale: resume.rationale || "",
     currentStep: resume.currentStep || 0,
@@ -399,6 +401,10 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
   let stepResult = "";
   let isFirstChunk = true;
 
+  // Load tools from registry, scoped to the agent's output directory
+  const toolSchemas = getToolSchemas({ outputDirectory: loopState.outputDirectory });
+  const tools = Object.keys(toolSchemas).length > 0 ? toolSchemas : undefined;
+
   try {
     // Uses the existing sendMessage / tool-calling infrastructure
     const result = await aiService.sendMessage(messages, (chunk) => {
@@ -412,7 +418,7 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
       }
       stepResult += chunk;
       process.stdout.write(chalk.white(chunk));
-    }, { system: ORBITAL_SYSTEM_PROMPT });
+    }, { system: ORBITAL_SYSTEM_PROMPT, ...(tools && { tools }) });
 
     if (isFirstChunk) {
       spinner.stop();
@@ -780,7 +786,8 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
             currentStep: task.currentStep,
             stepResults: Array.isArray(task.stepResults) ? task.stepResults : [],
             status: task.status,
-          }
+          },
+          workingDirectory
         );
 
         console.log(chalk.green(`\n▶  Resuming task from step ${task.currentStep + 1}...\n`));
@@ -862,7 +869,7 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
     // Create a new AgentTask record and build the loop state
     const task = await agentTaskService.createTask(conversation.id, goal)
       .catch((e) => { console.error(chalk.dim(`[task-persist] ${e.message}`)); return null; });
-    loopState = createLoopState(goal, projectContext, task?.id ?? null);
+    loopState = createLoopState(goal, projectContext, task?.id ?? null, {}, workingDirectory);
 
     try {
       await runReasoningLoop(loopState, conversation.id);
