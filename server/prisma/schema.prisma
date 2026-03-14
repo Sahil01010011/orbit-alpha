@@ -102,6 +102,7 @@ model Conversation {
 
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages  Message[]
+  agentTasks AgentTask[]
 
 }
 
@@ -115,4 +116,18 @@ model Message {
   conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   
   @@index([conversationId])
+}
+
+model AgentTask {
+  id               String   @id @default(cuid())
+  conversationId   String
+  conversation     Conversation @relation(fields: [conversationId], references: [id])
+  goal             String
+  plan             Json
+  currentStep      Int      @default(0)
+  stepResults      Json     @default("[]")
+  status           String   @default("planning")
+  finalOutput      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }

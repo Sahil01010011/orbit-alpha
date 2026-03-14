@@ -1,11 +1,12 @@
 import chalk from "chalk";
 import boxen from "boxen";
-import { text, isCancel, cancel, intro, outro } from "@clack/prompts";
+import { text, select, isCancel, cancel, intro, outro } from "@clack/prompts";
 import yoctoSpinner from "yocto-spinner";
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
 import { AIService } from "../ai/google-service.js";
 import { ChatService } from "../../service/chat.service.js";
+import { AgentTaskService } from "../../service/agentTask.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
 import prisma from "../../lib/db.js";
 import { z } from "zod";
@@ -42,6 +43,7 @@ marked.use(
 
 const aiService = new AIService();
 const chatService = new ChatService();
+const agentTaskService = new AgentTaskService();
 
 // ─── Zod schemas for structured AI outputs ────────────────────────────────────
 
@@ -88,18 +90,21 @@ const ReflectionSchema = z.object({
  * Create an in-memory loop state structure for a single goal execution.
  * @param {string} goal - The original user prompt / goal
  * @param {object|null} projectContext - Structured context from readProjectContext()
+ * @param {string|null} taskId - Existing AgentTask ID for resume (null for new tasks)
+ * @param {object} [resume] - Partial state to restore when resuming (plan, currentStep, stepResults)
  */
-function createLoopState(goal, projectContext = null) {
+function createLoopState(goal, projectContext = null, taskId = null, resume = {}) {
   return {
     goal,
     projectContext,
-    plan: [],
-    rationale: "",
-    currentStep: 0,
-    stepResults: [],
+    plan: resume.plan || [],
+    rationale: resume.rationale || "",
+    currentStep: resume.currentStep || 0,
+    stepResults: resume.stepResults || [],
     retryCount: 0,
-    status: "planning", // planning | acting | reflecting | complete | failed
+    status: resume.status || "planning", // planning | acting | reflecting | complete | failed
     finalOutput: null,
+    taskId,
   };
 }
 
@@ -506,19 +511,35 @@ Provide a detailed assessment, a clear decision, and your reasoning.`,
  * @param {string} conversationId - DB conversation ID for persistence
  */
 async function runReasoningLoop(loopState, conversationId) {
-  // ── Phase 1: Planning ──────────────────────────────────────────────────────
-  logLoop(loopState, "Starting planning phase");
-  await generatePlan(loopState);
-  displayPlan(loopState);
+  // ── Phase 1: Planning (skip if resuming with an existing plan) ────────────
+  if (loopState.plan.length === 0) {
+    logLoop(loopState, "Starting planning phase");
+    await generatePlan(loopState);
+    displayPlan(loopState);
 
-  // Persist the plan as an assistant message
-  await chatService.addMessage(
-    conversationId,
-    "assistant",
-    `[Plan Generated]\nGoal: ${loopState.goal}\nRationale: ${loopState.rationale}\n\nSteps:\n${loopState.plan
-      .map((s, i) => `${i + 1}. ${s}`)
-      .join("\n")}`
-  );
+    // Persist the plan in the AgentTask record
+    if (loopState.taskId) {
+      await agentTaskService.updateTaskStep(
+        loopState.taskId,
+        loopState.currentStep,
+        loopState.stepResults,
+        "acting",
+        loopState.plan
+      ).catch(() => {}); // non-fatal
+    }
+
+    // Persist the plan as an assistant message
+    await chatService.addMessage(
+      conversationId,
+      "assistant",
+      `[Plan Generated]\nGoal: ${loopState.goal}\nRationale: ${loopState.rationale}\n\nSteps:\n${loopState.plan
+        .map((s, i) => `${i + 1}. ${s}`)
+        .join("\n")}`
+    );
+  } else {
+    logLoop(loopState, `Resuming from step ${loopState.currentStep + 1}/${loopState.plan.length}`);
+    displayPlan(loopState);
+  }
 
   // ── Phase 2: Act → Observe → Reflect loop ─────────────────────────────────
   let totalStepsExecuted = 0;
@@ -567,6 +588,11 @@ async function runReasoningLoop(loopState, conversationId) {
         "assistant",
         `[Step ${stepIndex + 1} Failed — Unrecoverable]\n${error.message}`
       );
+
+      // Persist failure state
+      if (loopState.taskId) {
+        await agentTaskService.failTask(loopState.taskId, loopState.finalOutput).catch(() => {});
+      }
       break;
     }
 
@@ -577,7 +603,7 @@ async function runReasoningLoop(loopState, conversationId) {
     const reflection = await reflectOnStep(loopState, stepResult);
     displayReflection(reflection, stepIndex + 1);
 
-    // Persist step + reflection
+    // Persist step + reflection as a conversation message
     await chatService.addMessage(
       conversationId,
       "assistant",
@@ -623,6 +649,26 @@ async function runReasoningLoop(loopState, conversationId) {
       loopState.retryCount = 0;
       loopState.currentStep++;
       logLoop(loopState, `Proceeding to step ${loopState.currentStep + 1}`);
+    }
+
+    // Persist step progress to database after each decision
+    if (loopState.taskId) {
+      await agentTaskService.updateTaskStep(
+        loopState.taskId,
+        loopState.currentStep,
+        loopState.stepResults,
+        loopState.status,
+        loopState.plan
+      ).catch(() => {}); // non-fatal — loop must continue even if DB write fails
+    }
+  }
+
+  // Persist terminal state
+  if (loopState.taskId) {
+    if (loopState.status === "complete") {
+      await agentTaskService.completeTask(loopState.taskId, loopState.finalOutput).catch(() => {});
+    } else if (loopState.status === "failed") {
+      await agentTaskService.failTask(loopState.taskId, loopState.finalOutput).catch(() => {});
     }
   }
 
@@ -681,6 +727,91 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
   let isFirstGoal = true;
 
   while (true) {
+    // ── Check for incomplete tasks and offer resume ────────────────────────
+    let loopState;
+
+    const incompleteTasks = await agentTaskService
+      .getIncompleteTasksForConversation(conversation.id)
+      .catch(() => []);
+
+    if (incompleteTasks.length > 0) {
+      const task = incompleteTasks[0];
+      const lastResult =
+        Array.isArray(task.stepResults) && task.stepResults.length > 0
+          ? String(task.stepResults[task.stepResults.length - 1]).slice(0, 120)
+          : "No steps completed yet";
+
+      console.log(
+        boxen(
+          `${chalk.bold("Goal:")} ${chalk.white(task.goal)}\n` +
+            `${chalk.bold("Steps completed:")} ${chalk.cyan(String(task.currentStep))} / ${chalk.cyan(String(Array.isArray(task.plan) ? task.plan.length : "?"))}\n` +
+            `${chalk.bold("Last result:")} ${chalk.gray(lastResult + (lastResult.length >= 120 ? "…" : ""))}`,
+          {
+            padding: 1,
+            margin: { top: 1, bottom: 1 },
+            borderStyle: "round",
+            borderColor: "yellow",
+            title: "⏸️  Interrupted Task Detected",
+            titleAlignment: "center",
+          }
+        )
+      );
+
+      const resumeChoice = await select({
+        message: "An interrupted task was found. What would you like to do?",
+        options: [
+          { value: "resume", label: "Resume this task", hint: "Continue from where it left off" },
+          { value: "new", label: "Start a new goal", hint: "Discard the interrupted task" },
+        ],
+      });
+
+      if (isCancel(resumeChoice)) {
+        console.log(chalk.yellow("\n👋 Agent session cancelled\n"));
+        process.exit(0);
+      }
+
+      if (resumeChoice === "resume") {
+        loopState = createLoopState(
+          task.goal,
+          projectContext,
+          task.id,
+          {
+            plan: Array.isArray(task.plan) ? task.plan : [],
+            currentStep: task.currentStep,
+            stepResults: Array.isArray(task.stepResults) ? task.stepResults : [],
+            status: task.status,
+          }
+        );
+
+        console.log(chalk.green(`\n▶  Resuming task from step ${task.currentStep + 1}...\n`));
+
+        try {
+          await runReasoningLoop(loopState, conversation.id);
+          displayFinalOutput(loopState);
+
+          if (loopState.finalOutput) {
+            await chatService.addMessage(
+              conversation.id,
+              "assistant",
+              `[Final Output]\n${loopState.finalOutput}`
+            );
+          }
+
+          if (loopState.status === "complete") {
+            console.log(chalk.green.bold("\n✅ Goal accomplished! Ready for next goal.\n"));
+          } else {
+            console.log(chalk.yellow.bold("\n⚠️  Loop ended without fully completing the goal.\n"));
+          }
+        } catch (error) {
+          console.log(chalk.red(`\n❌ Agent error: ${error.message}\n`));
+          await chatService.addMessage(conversation.id, "assistant", `[Error] ${error.message}`);
+        }
+
+        continue; // back to top of while loop
+      }
+      // "new" falls through to regular goal input below
+    }
+
     const userInput = await text({
       message: chalk.cyan("🎯 Enter your goal"),
       placeholder: "Describe what you want to achieve in detail...",
@@ -728,8 +859,9 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
       isFirstGoal = false;
     }
 
-    // Create a fresh loop state for this goal, carrying project context
-    const loopState = createLoopState(goal, projectContext);
+    // Create a new AgentTask record and build the loop state
+    const task = await agentTaskService.createTask(conversation.id, goal).catch(() => null);
+    loopState = createLoopState(goal, projectContext, task?.id ?? null);
 
     try {
       await runReasoningLoop(loopState, conversation.id);
@@ -757,6 +889,9 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
       }
     } catch (error) {
       console.log(chalk.red(`\n❌ Agent error: ${error.message}\n`));
+      if (loopState?.taskId) {
+        await agentTaskService.failTask(loopState.taskId, error.message).catch(() => {});
+      }
       await chatService.addMessage(
         conversation.id,
         "assistant",
