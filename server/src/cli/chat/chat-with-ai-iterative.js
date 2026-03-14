@@ -758,9 +758,9 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
       );
 
       const resumeChoice = await select({
-        message: "An interrupted task was found. What would you like to do?",
+        message: `Resume from step ${task.currentStep + 1} or start a new goal?`,
         options: [
-          { value: "resume", label: "Resume this task", hint: "Continue from where it left off" },
+          { value: "resume", label: `Resume from step ${task.currentStep + 1}`, hint: "Continue from where it left off" },
           { value: "new", label: "Start a new goal", hint: "Discard the interrupted task" },
         ],
       });
