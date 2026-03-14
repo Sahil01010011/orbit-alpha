@@ -357,11 +357,25 @@ function displayContextSummary(context) {
 
 /**
  * Format a raw tool execute() return value into a short human-readable string.
+ * Tool results are now always strings (JSON-stringified objects when necessary).
  * @param {*} raw - The value returned by the tool's execute function
  * @returns {string}
  */
 function formatToolResult(raw) {
-  const msg = raw?.result ?? raw?.error ?? (typeof raw === "string" ? raw : JSON.stringify(raw));
+  let msg;
+  if (typeof raw === "string") {
+    // Tool results are JSON-stringified; try to extract the meaningful field for display.
+    try {
+      const parsed = JSON.parse(raw);
+      const inner = parsed?.result ?? parsed?.error ?? raw;
+      msg = typeof inner === "string" ? inner : JSON.stringify(inner);
+    } catch (_) {
+      msg = raw;
+    }
+  } else {
+    // Legacy/fallback path for plain objects
+    msg = raw?.result ?? raw?.error ?? JSON.stringify(raw);
+  }
   return String(msg).slice(0, TOOL_RESULT_SUMMARY_MAX_LENGTH);
 }
 

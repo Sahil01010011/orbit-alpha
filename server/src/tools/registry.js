@@ -46,7 +46,10 @@ export function getToolSchemas(context = {}) {
     schemas[name] = tool({
       description: def.description,
       parameters: def.parameters,
-      execute: (args) => def.execute(args, context),
+      execute: async (args) => {
+        const result = await def.execute(args, context);
+        return typeof result === "string" ? result : JSON.stringify(result);
+      },
     });
   }
   return schemas;
