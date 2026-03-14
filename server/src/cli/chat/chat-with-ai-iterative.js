@@ -18,6 +18,7 @@ import { getToolSchemas } from "../../tools/index.js";
 
 const MAX_STEPS = 10;
 const MAX_RETRIES_PER_STEP = 2;
+const TOOL_RESULT_SUMMARY_MAX_LENGTH = 120;
 
 // ─── Marked terminal renderer (same options as other chat files) ───────────────
 
@@ -354,6 +355,16 @@ function displayContextSummary(context) {
 
 // ─── Phase 2: Act ─────────────────────────────────────────────────────────────
 
+/**
+ * Format a raw tool execute() return value into a short human-readable string.
+ * @param {*} raw - The value returned by the tool's execute function
+ * @returns {string}
+ */
+function formatToolResult(raw) {
+  const msg = raw?.result ?? raw?.error ?? (typeof raw === "string" ? raw : JSON.stringify(raw));
+  return String(msg).slice(0, TOOL_RESULT_SUMMARY_MAX_LENGTH);
+}
+
 async function executeStep(loopState) {
   const stepIndex = loopState.currentStep;
   const step = loopState.plan[stepIndex];
@@ -400,6 +411,14 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
 
   let stepResult = "";
   let isFirstChunk = true;
+  let spinnerStopped = false;
+
+  const stopSpinnerOnce = () => {
+    if (!spinnerStopped) {
+      spinner.stop();
+      spinnerStopped = true;
+    }
+  };
 
   // Load tools from registry, scoped to the agent's output directory
   const toolSchemas = getToolSchemas({ outputDirectory: loopState.outputDirectory });
@@ -409,7 +428,7 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
     // Uses the existing sendMessage / tool-calling infrastructure
     const result = await aiService.sendMessage(messages, (chunk) => {
       if (isFirstChunk) {
-        spinner.stop();
+        stopSpinnerOnce();
         console.log(
           "\n" + chalk.bold(`  📝 Step ${stepNum} output:`)
         );
@@ -418,15 +437,32 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
       }
       stepResult += chunk;
       process.stdout.write(chalk.white(chunk));
-    }, { system: ORBITAL_SYSTEM_PROMPT, ...(tools && { tools }) });
+    }, {
+      system: ORBITAL_SYSTEM_PROMPT,
+      ...(tools && { tools }),
+      onToolCall: (toolCall, toolResult) => {
+        stopSpinnerOnce();
+        console.log(chalk.cyan(`\n  🔧 Invoking tool: ${toolCall.toolName}`));
+        if (toolResult !== undefined) {
+          console.log(chalk.green(`  ✔ Tool result: ${formatToolResult(toolResult.result)}`));
+        }
+      },
+    });
 
-    if (isFirstChunk) {
-      spinner.stop();
-    }
+    stopSpinnerOnce();
 
     console.log("\n" + chalk.gray("  " + "─".repeat(55)) + "\n");
 
-    const content = result.content || stepResult;
+    let content = result.content || stepResult;
+
+    // When the model only invokes tools without generating follow-up text,
+    // synthesise the step output from the tool results so the step is non-empty.
+    if (!content && result.toolResults && result.toolResults.length > 0) {
+      content = result.toolResults
+        .map((tr) => `Tool ${tr.toolName}: ${formatToolResult(tr.result)}`)
+        .join("\n");
+    }
+
     logLoop(loopState, `Step ${stepNum} executed (${content.length} chars)`);
     return content;
   } catch (error) {

@@ -21,7 +21,7 @@ export class AIService {
    * @param {Function} onChunk - Callback for each text chunk
    * @param {Object} [options] - Optional configuration
    * @param {Object} [options.tools] - Tools to enable for this request
-   * @param {Function} [options.onToolCall] - Callback for tool calls
+   * @param {Function} [options.onToolCall] - Callback invoked after each tool call step with (toolCall, toolResult)
    * @param {string} [options.system] - System prompt to separate from user messages
    * @returns {Promise<Object>} Full response with content, tool calls, and usage
    */
@@ -39,7 +39,22 @@ export class AIService {
       if (tools && Object.keys(tools).length > 0) {
         streamConfig.tools = tools;
         streamConfig.maxSteps = 5; // Allow up to 5 tool call steps
-        
+
+        // Fire onToolCall in real-time as each step with tool calls finishes,
+        // pairing each tool call with its corresponding result.
+        if (onToolCall) {
+          streamConfig.onStepFinish = (stepResult) => {
+            if (stepResult.toolCalls && stepResult.toolCalls.length > 0) {
+              for (const toolCall of stepResult.toolCalls) {
+                const toolResult = stepResult.toolResults?.find(
+                  (r) => r.toolCallId === toolCall.toolCallId
+                );
+                onToolCall(toolCall, toolResult);
+              }
+            }
+          };
+        }
+
         console.log(chalk.gray(`[DEBUG] Tools enabled: ${Object.keys(tools).join(', ')}`));
       }
 
@@ -61,16 +76,12 @@ export class AIService {
       const toolCalls = [];
       const toolResults = [];
       
-      // Collect tool calls from all steps (if they exist)
+      // Collect tool calls and results from all steps for the return value.
+      // onToolCall has already been invoked in real-time via onStepFinish above.
       if (fullResult.steps && Array.isArray(fullResult.steps)) {
         for (const step of fullResult.steps) {
           if (step.toolCalls && step.toolCalls.length > 0) {
-            for (const toolCall of step.toolCalls) {
-              toolCalls.push(toolCall);
-              if (onToolCall) {
-                onToolCall(toolCall);
-              }
-            }
+            toolCalls.push(...step.toolCalls);
           }
           
           // Collect tool results
