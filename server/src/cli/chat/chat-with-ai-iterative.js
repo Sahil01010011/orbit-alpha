@@ -525,7 +525,7 @@ async function runReasoningLoop(loopState, conversationId) {
         loopState.stepResults,
         "acting",
         loopState.plan
-      ).catch(() => {}); // non-fatal
+      ).catch((e) => console.error(chalk.dim(`[task-persist] ${e.message}`))); // non-fatal
     }
 
     // Persist the plan as an assistant message
@@ -591,7 +591,7 @@ async function runReasoningLoop(loopState, conversationId) {
 
       // Persist failure state
       if (loopState.taskId) {
-        await agentTaskService.failTask(loopState.taskId, loopState.finalOutput).catch(() => {});
+        await agentTaskService.failTask(loopState.taskId, loopState.finalOutput).catch((e) => console.error(chalk.dim(`[task-persist] ${e.message}`)));
       }
       break;
     }
@@ -659,16 +659,16 @@ async function runReasoningLoop(loopState, conversationId) {
         loopState.stepResults,
         loopState.status,
         loopState.plan
-      ).catch(() => {}); // non-fatal — loop must continue even if DB write fails
+      ).catch((e) => console.error(chalk.dim(`[task-persist] ${e.message}`))); // non-fatal
     }
   }
 
   // Persist terminal state
   if (loopState.taskId) {
     if (loopState.status === "complete") {
-      await agentTaskService.completeTask(loopState.taskId, loopState.finalOutput).catch(() => {});
+      await agentTaskService.completeTask(loopState.taskId, loopState.finalOutput).catch((e) => console.error(chalk.dim(`[task-persist] ${e.message}`)));
     } else if (loopState.status === "failed") {
-      await agentTaskService.failTask(loopState.taskId, loopState.finalOutput).catch(() => {});
+      await agentTaskService.failTask(loopState.taskId, loopState.finalOutput).catch((e) => console.error(chalk.dim(`[task-persist] ${e.message}`)));
     }
   }
 
@@ -732,7 +732,7 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
 
     const incompleteTasks = await agentTaskService
       .getIncompleteTasksForConversation(conversation.id)
-      .catch(() => []);
+      .catch((e) => { console.error(chalk.dim(`[task-persist] ${e.message}`)); return []; });
 
     if (incompleteTasks.length > 0) {
       const task = incompleteTasks[0];
@@ -860,7 +860,8 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
     }
 
     // Create a new AgentTask record and build the loop state
-    const task = await agentTaskService.createTask(conversation.id, goal).catch(() => null);
+    const task = await agentTaskService.createTask(conversation.id, goal)
+      .catch((e) => { console.error(chalk.dim(`[task-persist] ${e.message}`)); return null; });
     loopState = createLoopState(goal, projectContext, task?.id ?? null);
 
     try {
@@ -890,7 +891,7 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
     } catch (error) {
       console.log(chalk.red(`\n❌ Agent error: ${error.message}\n`));
       if (loopState?.taskId) {
-        await agentTaskService.failTask(loopState.taskId, error.message).catch(() => {});
+        await agentTaskService.failTask(loopState.taskId, error.message).catch((e) => console.error(chalk.dim(`[task-persist] ${e.message}`)));
       }
       await chatService.addMessage(
         conversation.id,

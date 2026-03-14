@@ -121,7 +121,7 @@ model Message {
 model AgentTask {
   id               String   @id @default(cuid())
   conversationId   String
-  conversation     Conversation @relation(fields: [conversationId], references: [id])
+  conversation     Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   goal             String
   plan             Json
   currentStep      Int      @default(0)
