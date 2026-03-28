@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/auth.middleware.js";
 import { ChatService } from "../service/chat.service.js";
+import prisma from "../lib/db.js";
 
 const router = Router();
 const chatService = new ChatService();
@@ -76,6 +77,35 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
     const updated = await chatService.updateTitle(req.params.id, title.trim());
     res.json(updated);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/conversations/:id
+ * Delete a conversation and all its associated records owned by the authenticated user.
+ */
+router.delete("/:id", requireAuth, async (req, res) => {
+  try {
+    // Verify ownership before deleting
+    const existing = await chatService.getConversationById(
+      req.params.id,
+      req.user.id
+    );
+
+    if (!existing) {
+      return res.status(404).json({ error: "Conversation not found" });
+    }
+
+    // Delete associated records and conversation in a single transaction
+    await prisma.$transaction([
+      prisma.agentTask.deleteMany({ where: { conversationId: req.params.id } }),
+      prisma.message.deleteMany({ where: { conversationId: req.params.id } }),
+      prisma.conversation.delete({ where: { id: req.params.id } }),
+    ]);
+
+    res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

@@ -17,7 +17,7 @@ import prisma from "../../../lib/db.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-dotenv.config({ path: resolve(__dirname, "../../../../.env") });
+dotenv.config({ path: resolve(__dirname, "../../../../.env"), quiet: true });
 
 const DEMO_URL = "http://localhost:3005";
 const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
