@@ -12,6 +12,9 @@ import { startAgentChat } from "../../chat/chat-with-ai-agent.js";
 
 const chatService = new ChatService();
 
+// Sentinel value used to signal "go back" from a sub-prompt.
+const BACK = "__BACK__";
+
 async function getUserFromToken() {
   const token = await getStoredToken();
 
@@ -79,20 +82,29 @@ export async function historyAction() {
       return;
     }
 
-    // Build select options — one per conversation
-    const buildOptions = (convs) =>
-      convs.map((c) => {
-        const preview = c.messages?.[0]?.content
-          ? c.messages[0].content.slice(0, 60) + (c.messages[0].content.length > 60 ? "…" : "")
-          : "No messages";
-        const modeTag = chalk.gray(`[${c.mode}]`);
-        const date = chalk.gray(formatDate(c.updatedAt));
-        return {
-          value: c.id,
-          label: `${c.title || "Untitled"} ${modeTag}`,
-          hint: `${date} — ${preview}`,
-        };
-      });
+    // Build select options — one per conversation, using the unique ID as value.
+    const buildOptions = (convs) => {
+      const seen = new Set();
+      return convs
+        .filter((c) => c.id != null)
+        .filter((c) => {
+          if (seen.has(c.id)) return false;
+          seen.add(c.id);
+          return true;
+        })
+        .map((c) => {
+          const preview = c.messages?.[0]?.content
+            ? c.messages[0].content.slice(0, 60) + (c.messages[0].content.length > 60 ? "…" : "")
+            : "No messages";
+          const modeTag = chalk.gray(`[${c.mode}]`);
+          const date = chalk.gray(formatDate(c.updatedAt));
+          return {
+            value: c.id,
+            label: `${c.title || "Untitled"} ${modeTag}`,
+            hint: `${date} — ${preview}`,
+          };
+        });
+    };
 
     // Ask what the user wants to do
     const action = await select({
@@ -100,6 +112,7 @@ export async function historyAction() {
       options: [
         { value: "resume", label: "Resume a conversation" },
         { value: "delete", label: "Delete a conversation" },
+        { value: BACK, label: "← Back to main menu" },
       ],
     });
 
@@ -108,15 +121,27 @@ export async function historyAction() {
       return;
     }
 
+    if (action === BACK) {
+      return;
+    }
+
     if (action === "delete") {
-      // Show conversation list for deletion
+      // Show conversation list for deletion with a back option
+      const deleteOptions = [
+        ...buildOptions(conversations),
+        { value: BACK, label: "← Back to main menu" },
+      ];
       const toDelete = await select({
         message: "Select a conversation to delete:",
-        options: buildOptions(conversations),
+        options: deleteOptions,
       });
 
       if (isCancel(toDelete)) {
         cancel(chalk.yellow("Cancelled"));
+        return;
+      }
+
+      if (toDelete === BACK) {
         return;
       }
 
@@ -142,18 +167,25 @@ export async function historyAction() {
       console.log(
         chalk.green(`\n✅ Conversation "${name}" has been deleted.\n`)
       );
-      outro(chalk.green("Done."));
       return;
     }
 
     // action === "resume"
+    const resumeOptions = [
+      ...buildOptions(conversations),
+      { value: BACK, label: "← Back to main menu" },
+    ];
     const selected = await select({
       message: "Select a conversation to resume:",
-      options: buildOptions(conversations),
+      options: resumeOptions,
     });
 
     if (isCancel(selected)) {
       cancel(chalk.yellow("Cancelled"));
+      return;
+    }
+
+    if (selected === BACK) {
       return;
     }
 
@@ -187,7 +219,7 @@ export async function historyAction() {
       borderColor: "red",
     });
     console.log(errorBox);
-    process.exit(1);
+    // Do not call process.exit so the main menu loop can continue.
   }
 }
 

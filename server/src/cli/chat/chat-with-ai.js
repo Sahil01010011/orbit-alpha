@@ -214,13 +214,6 @@ async function chatLoop(conversation) {
 
     // Handle exit command
     if (userInput.toLowerCase() === "exit") {
-      const exitBox = boxen(chalk.yellow("Chat session ended. Goodbye! 👋"), {
-        padding: 1,
-        margin: 1,
-        borderStyle: "round",
-        borderColor: "yellow",
-      });
-      console.log(exitBox);
       break;
     }
 
@@ -259,9 +252,6 @@ export async function startChat(mode = "chat", conversationId = null) {
     const user = await getUserFromToken();
     const conversation = await initConversation(user.id, conversationId, mode);
     await chatLoop(conversation);
-    
-    // Display outro
-    outro(chalk.green("✨ Thanks for chatting!"));
   } catch (error) {
     const errorBox = boxen(chalk.red(`❌ Error: ${error.message}`), {
       padding: 1,
