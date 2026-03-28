@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { z } from "zod";
 import { registerTool } from "./registry.js";
+import { resolvePath } from "./utils.js";
 
 // ─── read_file ────────────────────────────────────────────────────────────────
 
@@ -12,7 +13,8 @@ registerTool("read_file", {
   }),
   execute: async ({ file_path }) => {
     try {
-      const content = await fs.readFile(file_path, "utf-8");
+      const resolved = resolvePath(file_path);
+      const content = await fs.readFile(resolved, "utf-8");
       return { success: true, result: content };
     } catch (err) {
       return { success: false, error: `Failed to read file: ${err.message}` };
@@ -32,9 +34,10 @@ registerTool("write_file", {
   }),
   execute: async ({ file_path, content }) => {
     try {
-      await fs.mkdir(path.dirname(file_path), { recursive: true });
-      await fs.writeFile(file_path, content, "utf-8");
-      return { success: true, result: `File written successfully: ${file_path}` };
+      const resolved = resolvePath(file_path);
+      await fs.mkdir(path.dirname(resolved), { recursive: true });
+      await fs.writeFile(resolved, content, "utf-8");
+      return { success: true, result: `File written successfully: ${resolved}` };
     } catch (err) {
       return { success: false, error: `Failed to write file: ${err.message}` };
     }
@@ -50,8 +53,9 @@ registerTool("delete_file", {
   }),
   execute: async ({ file_path }) => {
     try {
-      await fs.unlink(file_path);
-      return { success: true, result: `File deleted: ${file_path}` };
+      const resolved = resolvePath(file_path);
+      await fs.unlink(resolved);
+      return { success: true, result: `File deleted: ${resolved}` };
     } catch (err) {
       return { success: false, error: `Failed to delete file: ${err.message}` };
     }
@@ -68,11 +72,13 @@ registerTool("move_file", {
   }),
   execute: async ({ source_path, destination_path }) => {
     try {
-      await fs.mkdir(path.dirname(destination_path), { recursive: true });
-      await fs.rename(source_path, destination_path);
+      const resolvedSrc = resolvePath(source_path);
+      const resolvedDst = resolvePath(destination_path);
+      await fs.mkdir(path.dirname(resolvedDst), { recursive: true });
+      await fs.rename(resolvedSrc, resolvedDst);
       return {
         success: true,
-        result: `File moved from ${source_path} to ${destination_path}`,
+        result: `File moved from ${resolvedSrc} to ${resolvedDst}`,
       };
     } catch (err) {
       return { success: false, error: `Failed to move file: ${err.message}` };
@@ -100,6 +106,7 @@ registerTool("search_files", {
   execute: async ({ directory, name_pattern, content_search }) => {
     try {
       const matches = [];
+      const resolvedDir = resolvePath(directory);
 
       async function walk(dir) {
         let entries;
@@ -138,7 +145,7 @@ registerTool("search_files", {
         }
       }
 
-      await walk(directory);
+      await walk(resolvedDir);
 
       return {
         success: true,
