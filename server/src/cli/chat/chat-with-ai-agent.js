@@ -197,13 +197,11 @@ export async function startAgentChat(conversationId = null, outputDir = process.
 
     if (isCancel(shouldContinue) || !shouldContinue) {
       cancel(chalk.yellow("Agent mode cancelled"));
-      process.exit(0);
+      return;
     }
     
     const conversation = await initConversation(user.id, conversationId, outputDir);
     await agentLoop(conversation, outputDir);
-    
-    outro(chalk.green.bold("\n✨ Thanks for using Agent Mode!"));
     
   } catch (error) {
     const errorBox = boxen(chalk.red(`❌ Error: ${error.message}`), {
@@ -213,6 +211,5 @@ export async function startAgentChat(conversationId = null, outputDir = process.
       borderColor: "red",
     });
     console.log(errorBox);
-    process.exit(1);
   }
 }

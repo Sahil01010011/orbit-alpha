@@ -15,6 +15,9 @@ import { historyAction } from "../history/history.js";
 
 const chatService = new ChatService();
 
+// Sentinel value used to signal "go back to main menu" from sub-prompts.
+const BACK = "__BACK__";
+
 /**
  * Prompt the user for an output directory.
  * Defaults to the directory where `orbit` was originally invoked.
@@ -58,7 +61,9 @@ async function promptOutputDirectory(invocationDir) {
 
 /**
  * Ask the user whether to start a new conversation or resume an existing one
- * for the given mode.  Returns { conversationId: string|null }.
+ * for the given mode.
+ * Returns null for a new conversation, a conversation ID string to resume,
+ * or BACK to return to the main menu.
  */
 async function askSessionStart(userId, mode) {
   const sessionChoice = await select({
@@ -66,6 +71,7 @@ async function askSessionStart(userId, mode) {
     options: [
       { value: "new", label: "New conversation", hint: "Start fresh" },
       { value: "resume", label: "Resume existing", hint: "Continue a previous chat" },
+      { value: BACK, label: "← Back to main menu" },
     ],
   });
 
@@ -73,6 +79,8 @@ async function askSessionStart(userId, mode) {
     cancel(chalk.yellow("Cancelled"));
     process.exit(0);
   }
+
+  if (sessionChoice === BACK) return BACK;
 
   if (sessionChoice === "new") {
     return null;
@@ -90,22 +98,34 @@ async function askSessionStart(userId, mode) {
     return null;
   }
 
-  const options = filtered.map((c) => {
-    const preview = c.messages?.[0]?.content
-      ? c.messages[0].content.slice(0, 60) + (c.messages[0].content.length > 60 ? "…" : "")
-      : "No messages";
-    const date = new Date(c.updatedAt).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+  // Build options using the conversation ID as the unique value.
+  // Deduplicate by ID and remove any entries without a valid ID.
+  const seen = new Set();
+  const options = filtered
+    .filter((c) => c.id != null)
+    .filter((c) => {
+      if (seen.has(c.id)) return false;
+      seen.add(c.id);
+      return true;
+    })
+    .map((c) => {
+      const preview = c.messages?.[0]?.content
+        ? c.messages[0].content.slice(0, 60) + (c.messages[0].content.length > 60 ? "…" : "")
+        : "No messages";
+      const date = new Date(c.updatedAt).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return {
+        value: c.id,
+        label: c.title || "Untitled",
+        hint: `${date} — ${preview}`,
+      };
     });
-    return {
-      value: c.id,
-      label: c.title || "Untitled",
-      hint: `${date} — ${preview}`,
-    };
-  });
+
+  options.push({ value: BACK, label: "← Back to main menu" });
 
   const selected = await select({
     message: "Select a conversation to resume:",
@@ -116,6 +136,8 @@ async function askSessionStart(userId, mode) {
     cancel(chalk.yellow("Cancelled"));
     process.exit(0);
   }
+
+  if (selected === BACK) return BACK;
 
   return selected;
 }
@@ -154,64 +176,96 @@ const wakeUpAction = async (options, invocationDir) => {
 
   console.log(chalk.green(`\nWelcome back, ${user.name}!\n`));
 
-  const choice = await select({
-    message: "Select an option:",
-    options: [
-      {
-        value: "chat",
-        label: "Chat",
-        hint: "Simple chat with AI",
-      },
-      {
-        value: "tool",
-        label: "Tool Calling",
-        hint: "Chat with tools (Google Search, Code Execution)",
-      },
-      {
-        value: "agent",
-        label: options.iterative ? "Agentic Mode (Iterative Loop)" : "Agentic Mode",
-        hint: options.iterative
-          ? "Reasoning loop: goal → plan → act → reflect"
-          : "Autonomous application generator",
-      },
-      {
-        value: "history",
-        label: "View conversation history",
-        hint: "Browse and resume past conversations",
-      },
-    ],
-  });
+  // Persistent main-menu loop — exits only when the user explicitly chooses "Exit"
+  // or presses Ctrl+C.
+  while (true) {
+    const choice = await select({
+      message: "Select an option:",
+      options: [
+        {
+          value: "chat",
+          label: "Chat",
+          hint: "Simple chat with AI",
+        },
+        {
+          value: "tool",
+          label: "Tool Calling",
+          hint: "Chat with tools (Google Search, Code Execution)",
+        },
+        {
+          value: "agent",
+          label: options.iterative ? "Agentic Mode (Iterative Loop)" : "Agentic Mode",
+          hint: options.iterative
+            ? "Reasoning loop: goal → plan → act → reflect"
+            : "Autonomous application generator",
+        },
+        {
+          value: "history",
+          label: "View conversation history",
+          hint: "Browse and resume past conversations",
+        },
+        {
+          value: "exit",
+          label: "Exit",
+          hint: "Quit Orbital CLI",
+        },
+      ],
+    });
 
-  if (isCancel(choice)) {
-    cancel(chalk.yellow("Cancelled"));
-    return;
-  }
+    if (isCancel(choice) || choice === "exit") {
+      cancel(chalk.yellow("Goodbye! 👋"));
+      process.exit(0);
+    }
 
-  switch (choice) {
-    case "chat": {
-      const conversationId = await askSessionStart(user.id, "chat");
-      await startChat("chat", conversationId);
-      break;
-    }
-    case "tool": {
-      const conversationId = await askSessionStart(user.id, "tool");
-      await startToolChat(conversationId);
-      break;
-    }
-    case "agent": {
-      const outputDir = await promptOutputDirectory(invocationDir);
-      const conversationId = await askSessionStart(user.id, "agent");
-      if (options.iterative) {
-        await startIterativeAgentChat(conversationId, outputDir);
-      } else {
-        await startAgentChat(conversationId, outputDir);
+    switch (choice) {
+      case "chat": {
+        const conversationId = await askSessionStart(user.id, "chat");
+        if (conversationId === BACK) continue;
+        await startChat("chat", conversationId);
+        break;
       }
-      break;
+      case "tool": {
+        const conversationId = await askSessionStart(user.id, "tool");
+        if (conversationId === BACK) continue;
+        await startToolChat(conversationId);
+        break;
+      }
+      case "agent": {
+        const conversationId = await askSessionStart(user.id, "agent");
+        if (conversationId === BACK) continue;
+        const outputDir = await promptOutputDirectory(invocationDir);
+        if (options.iterative) {
+          await startIterativeAgentChat(conversationId, outputDir);
+        } else {
+          await startAgentChat(conversationId, outputDir);
+        }
+        break;
+      }
+      case "history": {
+        await historyAction();
+        break;
+      }
     }
-    case "history": {
-      await historyAction();
-      break;
+
+    // Visual separator between sessions
+    console.log("\n" + chalk.gray("─".repeat(60)) + "\n");
+
+    // After every completed action, ask whether to return or exit
+    const next = await select({
+      message: "What would you like to do next?",
+      options: [
+        { value: "menu", label: "Return to main menu" },
+        { value: "exit", label: "Exit" },
+      ],
+    });
+
+    if (isCancel(next) || next === "exit") {
+      cancel(chalk.yellow("Goodbye! 👋"));
+      process.exit(0);
     }
+
+    // next === "menu" → loop continues, showing the main menu again
+    console.log("\n" + chalk.gray("─".repeat(60)) + "\n");
   }
 };
 

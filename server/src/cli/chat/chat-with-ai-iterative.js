@@ -1001,7 +1001,6 @@ export async function startIterativeAgentChat(conversationId = null, workingDire
 
     await iterativeAgentLoop(conversation, workingDirectory);
 
-    outro(chalk.green.bold("\n✨ Thanks for using Iterative Agent Mode!"));
   } catch (error) {
     console.log(
       boxen(chalk.red(`❌ Error: ${error.message}`), {
@@ -1011,6 +1010,5 @@ export async function startIterativeAgentChat(conversationId = null, workingDire
         borderColor: "red",
       })
     );
-    process.exit(1);
   }
 }
