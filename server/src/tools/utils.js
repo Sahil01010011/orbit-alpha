@@ -1,4 +1,5 @@
 import { spawn } from "child_process";
+import path from "path";
 
 /**
  * Run a shell command and return { stdout, stderr, exitCode }.
@@ -45,4 +46,17 @@ export function runCommand(cmd, args, cwd, timeout = 30000, options = {}) {
       reject(err);
     });
   });
+}
+
+/**
+ * Resolve a path safely, handling spaces and relative segments.
+ * Passes arguments directly to path.resolve so Node.js handles
+ * platform-specific separators and spaces without any manual concatenation.
+ *
+ * @param {string} baseDir - Base directory (e.g. outputDirectory)
+ * @param {...string} parts - Additional path segments to join
+ * @returns {string} Absolute, normalised path
+ */
+export function resolvePath(baseDir, ...parts) {
+  return path.resolve(baseDir, ...parts);
 }

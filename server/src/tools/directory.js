@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import path from "path";
 import { z } from "zod";
 import { registerTool } from "./registry.js";
+import { resolvePath } from "./utils.js";
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build"]);
 const TREE_MAX_DEPTH = 4;
@@ -17,8 +18,9 @@ registerTool("create_directory", {
   }),
   execute: async ({ dir_path }) => {
     try {
-      await fs.mkdir(dir_path, { recursive: true });
-      return { success: true, result: `Directory created: ${dir_path}` };
+      const resolved = resolvePath(dir_path);
+      await fs.mkdir(resolved, { recursive: true });
+      return { success: true, result: `Directory created: ${resolved}` };
     } catch (err) {
       return { success: false, error: `Failed to create directory: ${err.message}` };
     }
@@ -35,11 +37,12 @@ registerTool("list_directory", {
   }),
   execute: async ({ dir_path }) => {
     try {
-      const entries = await fs.readdir(dir_path, { withFileTypes: true });
+      const resolved = resolvePath(dir_path);
+      const entries = await fs.readdir(resolved, { withFileTypes: true });
 
       const result = await Promise.all(
         entries.map(async (entry) => {
-          const fullPath = path.join(dir_path, entry.name);
+          const fullPath = path.join(resolved, entry.name);
           let size = 0;
           if (entry.isFile()) {
             try {
@@ -73,8 +76,9 @@ registerTool("directory_tree", {
   }),
   execute: async ({ dir_path }) => {
     try {
-      const lines = [dir_path];
-      await buildTree(dir_path, "", 0, lines);
+      const resolved = resolvePath(dir_path);
+      const lines = [resolved];
+      await buildTree(resolved, "", 0, lines);
       return { success: true, result: lines.join("\n") };
     } catch (err) {
       return { success: false, error: `Failed to build directory tree: ${err.message}` };
