@@ -55,7 +55,6 @@ export class AIService {
           };
         }
 
-        console.log(chalk.gray(`[DEBUG] Tools enabled: ${Object.keys(tools).join(', ')}`));
       }
 
       const result = streamText(streamConfig);

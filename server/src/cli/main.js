@@ -10,13 +10,16 @@ import { login, logout, whoami } from "./commands/auth/login.js";
 import { createWakeUpCommand } from "./commands/ai/wakeUp.js";
 import { history } from "./commands/history/history.js";
 
+// Suppress Node.js process warnings (e.g. PostgreSQL SSL deprecation)
+process.removeAllListeners("warning");
+
 // Capture the directory where `orbit` was invoked, before any async work.
 const INVOCATION_DIR = process.cwd();
 
 // Resolve .env relative to this script file so it works from any directory.
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = dirname(currentFilePath);
-dotenv.config({ path: resolve(currentDirPath, "../../../.env") });
+dotenv.config({ path: resolve(currentDirPath, "../../../.env"), quiet: true });
 
 async function main() {
     console.log(
