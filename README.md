@@ -2,41 +2,46 @@
 
 > An autonomous AI developer agent that lives in your terminal
 
+![Node.js](https://img.shields.io/badge/Node.js-18%2B-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue) ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Mac%20%7C%20Linux-lightgrey)
+
 ---
 
-## What is Orbital?
+## What is Orbital CLI?
 
-Orbital CLI is a tool that lets you have a conversation with an AI directly inside your terminal. You can ask it questions, have it write code for you, or give it a big goal (like "build me a to-do app") and watch it plan and execute the work step by step.
+Orbital CLI is an AI-powered developer agent that runs entirely inside your terminal. You can have a multi-turn conversation with it, ask it to write code, or give it a larger goal — like "build me a REST API" — and watch it plan the work, create the files, and explain every step as it goes.
 
-It is designed for developers who want AI assistance without leaving the command line. You do not need to open a browser, copy-paste code snippets, or switch between tools. Orbital reads your existing project files so it understands what you are already working on, then generates or modifies code that fits right in.
+Orbital is for developers who want AI help without leaving the command line. You do not need a browser tab, a chat box, or copy-pasting. When you run `orbit wakeup`, Orbital reads your existing project files so it already knows what you have built. It then generates or modifies code that fits naturally into your project — not generic snippets that clash with your structure.
 
-Orbital exists because AI-assisted development should feel natural. Instead of a chat box on a website, you get an agent that lives where your code lives — in the terminal, alongside your editor and version control.
+The key difference from using ChatGPT or Claude in a browser is that Orbital takes real actions. It can create files, run shell commands, install packages, commit to Git, and inspect your directory — all from inside your terminal, using your own project as context. It is not a conversation partner; it is a working agent.
 
 ---
 
 ## Features
 
-- **AI chat mode** — Have a multi-turn conversation with an AI. Ask questions, get explanations, request code snippets.
-- **Conversation history and session resume** — Every conversation is saved. Pick up exactly where you left off.
-- **Iterative agent reasoning loop** — Give the agent a goal and it will plan what to do, take action, observe the result, and reflect before continuing. (plan → act → observe → reflect)
-- **Project context awareness** — Before acting, the agent reads your existing project files so it understands what you have already built.
-- **Agentic code generation with output directory control** — Tell the agent to build something. Choose exactly which folder the generated files land in — never mixed up with the Orbital source code.
-- **GitHub OAuth authentication** — Log in securely with your GitHub account. No passwords to manage.
-- **Multi-tool support** — The agent can search the web, extract content from URLs, and execute code as part of solving your problem.
-- **Global CLI installation** — Install once and run `orbit` from any folder on your machine.
+- **GitHub OAuth authentication** — Secure login with your GitHub account. No passwords or API tokens to manage on the client side.
+- **AI Chat mode** — Multi-turn conversation with an AI that knows your project. Ask questions, get explanations, request code snippets, and keep the context going across multiple messages.
+- **Tool Calling mode** — Explicitly invoke any of the 21 registered developer tools. Useful when you want direct, predictable tool execution rather than a full conversation.
+- **Iterative Agentic mode** — Give the agent a goal. It creates a plan, works through each step, observes the result, and adjusts before continuing. The loop runs up to 10 steps automatically.
+- **Conversation history** — Every session is saved to the database and can be resumed at any time. Your context is never lost.
+- **Conversation deletion** — Remove old or unwanted sessions cleanly from the history menu.
+- **Project context awareness** — Before acting, Orbital scans your project directory, reads `package.json`, detects your framework, and injects that context into the agent's working memory.
+- **Global CLI** — Install once with `npm install -g .` and run `orbit` from any directory on your machine.
+- **Output directory control** — When generating files, Orbital asks you where to write them. Generated files always land where you tell them to — never mixed into the Orbital source code.
+- **21 registered developer tools** — Covering filesystem operations, shell execution, Git commands, dependency management, and directory operations.
+- **Persistent loop** — The CLI stays open and returns you to the main menu after each session. You choose when to exit.
+- **Back navigation** — Every submenu has a back option so you are never stuck.
 
 ---
 
 ## Prerequisites
 
-Before you start, make sure you have the following:
+Before you start, make sure you have the following installed and ready:
 
-| Requirement | Minimum version | Notes |
-|---|---|---|
-| **Node.js** | 18 or higher | [nodejs.org](https://nodejs.org) |
-| **PostgreSQL** | any recent version | OR use a free hosted database at [neon.tech](https://neon.tech) — no local install needed |
-| **GitHub account** | — | Used for OAuth login |
-| **Google Gemini API key** | — | Free tier available at [aistudio.google.com/apikey](https://aistudio.google.com/apikey) |
+- **Node.js 18 or higher** — [nodejs.org](https://nodejs.org)
+- **PostgreSQL database** — Install locally, or use a free hosted database at [neon.tech](https://neon.tech) (no local install required)
+- **GitHub account** — Used for OAuth login
+- **Google Gemini API key** — Free tier available at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- **Git** — Must be installed and available in your terminal
 
 ---
 
@@ -47,108 +52,113 @@ Follow these steps in order. Each step builds on the previous one.
 ### Step 1 — Clone the repository
 
 ```bash
-git clone https://github.com/Sahil01010011/orbit-alpha.git
-```
-
-### Step 2 — Navigate into the project folder
-
-```bash
+git clone https://github.com/Sahil01010011/orbit-alpha
 cd orbit-alpha
 ```
 
-### Step 3 — Install dependencies
+### Step 2 — Install server dependencies
 
 ```bash
-cd server && npm install && cd ..
+cd server
+npm install
+cd ..
 ```
 
-This downloads all the packages the project needs. It may take a minute.
+This downloads all the packages the backend needs. It may take a minute.
 
-### Step 4 — Set up your environment variables
+### Step 3 — Install client dependencies
 
-Environment variables are settings that the app reads at startup — things like your database address and API keys. They are stored in a file called `.env` that you create locally and never commit to Git.
+The client handles the GitHub OAuth login flow. It must be running alongside the server.
 
-Copy the example file to get started:
+```bash
+cd client
+npm install
+cd ..
+```
+
+### Step 4 — Configure environment variables
+
+Environment variables are settings the app reads at startup — database addresses, API keys, and secrets. They live in a `.env` file that you create locally and never commit to Git.
 
 ```bash
 cp .env.example .env
 ```
 
-Now open `.env` in any text editor and fill in the values. See the [Environment Variables](#environment-variables) section below for a plain-English explanation of each one.
+Open `.env` in any text editor and fill in every value:
 
-### Step 5 — Run database migrations
+```
+# The port number the Express backend listens on.
+# Leave as 3000 unless something else is already using that port.
+PORT=3000
 
-This creates the tables in your database that Orbital needs to store conversations and users.
+# Your PostgreSQL connection string.
+# Get a free database at https://neon.tech — no local install needed.
+# Format: postgresql://USER:PASSWORD@HOST/DATABASE
+DATABASE_URL="postgresql://user:password@host/dbname"
 
-```bash
-cd server && npx prisma migrate deploy && cd ..
+# A long random secret used to sign authentication tokens.
+# Keep this value private — treat it like a password.
+# Generate one with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+BETTER_AUTH_SECRET="replace-this-with-a-long-random-string"
+
+# The full URL where your backend server is running.
+# Use http://localhost:3000 for local development.
+BETTER_AUTH_URL="http://localhost:3000"
+
+# Your GitHub OAuth App credentials.
+# Create an OAuth App at https://github.com/settings/developers
+#   Homepage URL: http://localhost:3000
+#   Authorization callback URL: http://localhost:3000/api/auth/callback/github
+GITHUB_CLIENT_ID="your-github-oauth-app-client-id"
+GITHUB_CLIENT_SECRET="your-github-oauth-app-client-secret"
+
+# Your Google Gemini API key.
+# Get a free key at https://aistudio.google.com
+GOOGLE_GENERATIVE_AI_API_KEY="your-google-gemini-api-key"
+
+# (Optional) The Gemini model to use.
+# Leave blank to use the default: gemini-2.5-flash
+ORBITAI_MODEL=""
 ```
 
-### Step 6 — Client Setup
+### Step 5 — Set up the database
 
-The client is a Next.js web app used for GitHub OAuth and device authentication flows. Both the server and the client must be running simultaneously for the tool to work.
-
-**Install client dependencies:**
+This creates the tables Orbital needs to store users, conversations, and messages.
 
 ```bash
-cd client && npm install && cd ..
+cd server
+npx prisma db push
+npx prisma generate
+cd ..
 ```
 
-**Environment variables:** The client does not require any additional environment variables for local development. It connects to the backend server at `http://localhost:3000` by default.
-
-**Start the client:** Open a **new terminal window** and run:
+### Step 6 — Start the server
 
 ```bash
-cd client && npm run dev
+cd server
+npm run dev
 ```
 
-The client will be available at `http://localhost:3001` (Next.js picks the next free port if 3000 is taken by the backend).
+Keep this terminal open. The server must be running whenever you use the CLI.
 
-### Step 7 — Start the backend server
+### Step 7 — Install the CLI globally
 
-The backend is an Express server that handles authentication and talks to the AI on behalf of the CLI.
-
-```bash
-cd server && npm run dev
-```
-
-Leave this terminal window open. The server needs to be running whenever you use the CLI.
-
-### Step 8 — Install the CLI globally
-
-Open a **new terminal window** (keep the server running in the first one), navigate to the `orbit-alpha` directory, then run:
+Open a **new terminal window** and navigate to the `orbit-alpha` root directory:
 
 ```bash
-cd orbit-alpha
+cd path/to/orbit-alpha
 npm install -g .
 ```
 
 This makes the `orbit` command available everywhere on your machine.
 
-### Step 9 — Run Orbital
+### Step 8 — Run from anywhere
 
 ```bash
 orbit wakeup
 ```
 
-That's it! You should see the Orbital welcome screen.
-
----
-
-## Environment Variables
-
-Open your `.env` file and fill in each value:
-
-| Variable | What it is | Where to get it |
-|---|---|---|
-| `PORT` | The port number the backend server listens on | Leave as `3000` unless something else is already using that port |
-| `DATABASE_URL` | The connection string for your PostgreSQL database | Copy it from [neon.tech](https://neon.tech) after creating a free project, or use your local PostgreSQL URL |
-| `BETTER_AUTH_SECRET` | A long random string used to sign authentication tokens — keep this private | Generate one with `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` |
-| `BETTER_AUTH_URL` | The full URL where your backend server is running | `http://localhost:3000` when developing locally |
-| `GITHUB_CLIENT_ID` | The Client ID from your GitHub OAuth App | Create one at [github.com/settings/developers](https://github.com/settings/developers) |
-| `GITHUB_CLIENT_SECRET` | The Client Secret from your GitHub OAuth App | Same page as above — keep this private |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Your Google Gemini API key | [aistudio.google.com/apikey](https://aistudio.google.com/apikey) — free tier is available |
-| `ORBITAI_MODEL` | The Gemini model to use | Optional. Defaults to `gemini-2.5-flash` if you leave this blank |
+You should see the Orbital welcome screen. You are ready to go.
 
 ---
 
@@ -160,71 +170,125 @@ Open your `.env` file and fill in each value:
 orbit wakeup
 ```
 
-You will see a menu asking which mode you want:
+You will see a menu like this:
 
 ```
-? What would you like to do?
-  Chat mode
-  Agentic mode
-  View history
+◆  What would you like to do?
+│  ○ Chat mode
+│  ○ Tool Calling mode
+│  ○ Agentic mode
+│  ○ View history
+│  ○ Exit
+└
 ```
+
+Use the arrow keys to select a mode and press Enter.
+
+---
 
 ### Chat mode
 
-Select **Chat mode** to have a back-and-forth conversation with the AI.
+Select **Chat mode** to have a back-and-forth conversation with the AI. The AI knows your project context from the start.
 
 ```
 You: What is the difference between async/await and promises?
-Orbital: Great question! Promises are objects that represent...
+
+Orbital: Promises are objects that represent the eventual result of an
+asynchronous operation. async/await is syntax built on top of Promises
+that makes asynchronous code look and behave more like synchronous code...
 ```
 
-Type your message and press Enter. Type `exit` to quit the chat.
+The conversation continues until you type `exit` or select **Back** to return to the main menu.
 
-### Viewing conversation history and resuming a session
+---
 
-Select **View history** from the main menu to see your past conversations. Choose one to resume it — the AI will remember everything that was said before.
+### Tool Calling mode
 
-You can also run:
+Select **Tool Calling mode** to tell the AI to use a specific developer tool. This is useful when you want a precise, predictable action rather than a full conversation.
+
+```
+You: List all JavaScript files in the src directory
+
+Orbital: [calling list_directory_contents]
+→ src/index.js
+→ src/routes/users.js
+→ src/routes/posts.js
+→ src/middleware/auth.js
+```
+
+---
+
+### Agentic mode
+
+Select **Agentic mode** and give the agent a goal. It will create a plan, work through each step, and report back.
+
+```
+◆  Describe your goal:
+│  Build a simple Express REST API with a /users endpoint
+
+◆  Where should output be created? (press Enter for current directory)
+│  ~/projects/my-api
+
+◆  Planning...
+│  Step 1: Create project structure
+│  Step 2: Initialize package.json
+│  Step 3: Install express
+│  Step 4: Create server.js with /users endpoint
+│  Step 5: Add README
+
+◆  Executing step 1...
+◆  Executing step 2...
+...
+◆  Done. Files written to ~/projects/my-api
+```
+
+The agent runs up to 10 steps automatically. Generated files are written to the directory you specify — never into the Orbital source folder.
+
+---
+
+### History — view, resume, delete
+
+Select **View history** from the main menu to see all your past conversations.
+
+```
+◆  Select a conversation to resume (or go back)
+│  ○ Build a REST API  (chat · 2 days ago)
+│  ○ Explain React hooks  (chat · 5 days ago)
+│  ○ [Back]
+└
+```
+
+Select any conversation to resume it. The AI remembers everything that was said. To delete a conversation, select it and choose **Delete** from the options.
+
+You can also open history directly from the terminal:
 
 ```bash
 orbit history
 ```
 
-### Agentic mode — generate a project
+---
 
-Select **Agentic mode** to give the AI a larger goal. It will plan its approach, create files, and show you its reasoning at each step.
+### Navigation
 
-```
-? Describe your goal: Build a simple REST API with two endpoints
-```
+- Every screen has a **Back** option that returns you to the main menu.
+- The CLI stays open after each session — you choose when to exit.
+- Select **Exit** from the main menu or press `Ctrl+C` at any time to quit.
 
-### Selecting an output directory
-
-When you enter agentic mode, Orbital asks where to write the generated files:
-
-```
-Where should the output be created? (press Enter for current directory)
-```
-
-- Press **Enter** to use the folder you are currently in.
-- Type a path like `~/projects/my-api` to write files there.
-- If the folder does not exist, Orbital will offer to create it.
-
-Generated files are always written to the folder you choose — never mixed into the Orbital source code.
+---
 
 ### Other commands
 
 ```bash
-# Authenticate with GitHub
+# Authenticate with your GitHub account
 orbit login
 
-# See who is logged in
+# See which account is logged in
 orbit whoami
 
 # Log out
 orbit logout
 
-# Use the iterative reasoning loop (plan → act → observe → reflect)
+# Start with the iterative reasoning loop (plan → act → observe → reflect)
 orbit wakeup --iterative
 ```
 
@@ -232,19 +296,55 @@ orbit wakeup --iterative
 
 ## Troubleshooting
 
-### Database connection error
+### `orbit` command not found
 
-**Symptom:** The server crashes on startup with a message about the database.
+**Symptom:** Running `orbit wakeup` shows "command not found".
 
-**Fix:** Double-check your `DATABASE_URL` in `.env`. If you are using Neon, make sure you copied the full connection string including the password. If you are using a local PostgreSQL, make sure the server is running with `pg_ctl status`.
+**Fix:** Reinstall the global CLI from the `orbit-alpha` root directory:
+
+```bash
+npm install -g .
+```
 
 ---
 
-### Missing environment variable
+### `injecting env (0)` — credentials not loading
 
-**Symptom:** Error message like `GITHUB_CLIENT_ID is not set` or similar.
+**Symptom:** The CLI prints `injecting env (0)` and fails to authenticate or connect.
 
-**Fix:** Open your `.env` file and make sure every variable listed in `.env.example` has a value. Do not leave any line blank.
+**Fix:** Orbital is not finding your `.env` file. Make sure `.env` exists in the `server/` directory (not the project root) and contains all required values. The file must be at `server/.env`.
+
+---
+
+### Database connection error
+
+**Symptom:** The server crashes on startup with a Prisma or database connection error.
+
+**Fix:** Double-check your `DATABASE_URL` in `.env`. If you are using Neon, make sure you copied the full connection string including the password. If you are using a local PostgreSQL instance, verify it is running with `pg_ctl status`.
+
+---
+
+### Gemini rate limit errors
+
+**Symptom:** The AI returns an error about quota or rate limits during an agentic session.
+
+**Fix:** The free tier of the Google Gemini API allows 5 requests per minute. The agentic loop makes multiple requests per step, so longer tasks will hit this limit. Wait 60 seconds and try again, or upgrade to a paid Gemini tier at [aistudio.google.com](https://aistudio.google.com).
+
+---
+
+### `npm install -g` fails with `EEXIST`
+
+**Symptom:** Global install fails because binary files from a previous install are stuck.
+
+**Fix:** Manually delete the stuck files from your npm global bin directory. On Windows, delete these files from `%AppData%\Roaming\npm`:
+
+```
+orbit.cmd
+orbit.ps1
+orbit
+```
+
+Then run `npm install -g .` again.
 
 ---
 
@@ -252,17 +352,17 @@ orbit wakeup --iterative
 
 **Symptom:** `Error: listen EADDRINUSE :::3000`
 
-**Fix:** Something else is already using port 3000. Either stop the other process, or change `PORT=3000` in your `.env` file to another number like `PORT=3001`. If you change the port, also update `BETTER_AUTH_URL` to match.
+**Fix:** Change `PORT=3000` in your `.env` to an unused port number (for example `PORT=3001`). Also update `BETTER_AUTH_URL` to match the new port.
 
 ---
 
-### npm install -g permission error (Mac/Linux)
+### `npm install -g` permission error on Mac/Linux
 
 **Symptom:** `EACCES: permission denied` when running `npm install -g .`
 
-**Fix (recommended — use nvm):** If you installed Node.js with [nvm](https://github.com/nvm-sh/nvm), global installs work without sudo. Switch to an nvm-managed Node version.
+**Fix (recommended):** Use [nvm](https://github.com/nvm-sh/nvm) to manage Node.js. When Node is installed via nvm, global installs work without elevated permissions.
 
-**Fix (alternative — use sudo):**
+**Fix (alternative):**
 
 ```bash
 sudo npm install -g .
@@ -270,17 +370,28 @@ sudo npm install -g .
 
 ---
 
-### Gemini rate limit error
+## Known Limitations
 
-**Symptom:** The AI returns an error about quota or rate limits.
+- **Gemini free tier rate limits** — The free Gemini API tier allows 5 requests per minute. The agentic loop makes multiple requests per step, which causes rate limit errors on tasks with more than a few steps. Workaround: use short, focused goals, or upgrade to a paid Gemini tier.
+- **Tool execution returning undefined** — In some cases, tool `execute` functions do not propagate their return values through the registry correctly. This is under active investigation.
+- **Task state persistence** — `AgentTask` records are written to the database but the resume flow relies primarily on conversation message history. Full task state persistence is partially implemented.
 
-**Fix:** The free tier of the Google Gemini API has per-minute and per-day limits. Wait a minute and try again. If you hit the daily limit, consider upgrading your Google AI Studio plan or waiting until the limit resets at midnight Pacific Time.
+---
+
+## Roadmap
+
+- Web search integration in chat mode
+- Multi-language support — Python, Rust, Go
+- Model abstraction layer — switch between Gemini, OpenAI, Groq
+- Rate limit handling with automatic retry and provider fallback
+- Full task state persistence and resume
+- Test suite
 
 ---
 
 ## Contributing
 
-Contributions are welcome! Here is how to get started:
+Contributions are welcome. Here is how to get started:
 
 1. Fork the repository on GitHub.
 2. Create a new branch: `git checkout -b my-feature`
@@ -295,4 +406,4 @@ Please keep pull requests focused on a single change. If you are fixing a bug an
 
 ## License
 
-This project is licensed under the ISC License.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
