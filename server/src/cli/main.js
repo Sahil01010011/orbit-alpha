@@ -2,7 +2,6 @@
 
 import dotenv from "dotenv";
 import chalk from "chalk";
-import figlet from "figlet";
 import { Command } from "commander";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
@@ -22,17 +21,14 @@ const currentDirPath = dirname(currentFilePath);
 dotenv.config({ path: resolve(currentDirPath, "../../../.env"), quiet: true });
 
 async function main() {
-    console.log(
-        chalk.cyan(
-            figlet.textSync("Orbital CLI", {
-                font: "Standard",
-                horizontalLayout: "default"
-            })
-        
-        )
-    )
-
-    console.log(chalk.gray("A cli based AI Tool \n"))
+    console.log(chalk.hex('#22d3ee')(' ██████╗ ') + chalk.hex('#38bdf8')('██████╗ ') + chalk.hex('#818cf8')('██████╗ ') + chalk.hex('#a78bfa')('██╗████████╗') + '   ' + chalk.hex('#c084fc')(' █████╗ '));
+    console.log(chalk.hex('#22d3ee')('██╔═══██╗') + chalk.hex('#38bdf8')('██╔══██╗') + chalk.hex('#818cf8')('██╔══██╗') + chalk.hex('#a78bfa')('██║╚══██╔══╝') + '  ' + chalk.hex('#c084fc')('██╔══██╗'));
+    console.log(chalk.hex('#22d3ee')('██║   ██║') + chalk.hex('#38bdf8')('██████╔╝') + chalk.hex('#818cf8')('██████╔╝') + chalk.hex('#a78bfa')('██║   ██║  ') + '  ' + chalk.hex('#c084fc')('███████║'));
+    console.log(chalk.hex('#22d3ee')('██║   ██║') + chalk.hex('#38bdf8')('██╔══██╗') + chalk.hex('#818cf8')('██╔══██╗') + chalk.hex('#a78bfa')('██║   ██║  ') + '  ' + chalk.hex('#c084fc')('██╔══██║'));
+    console.log(chalk.hex('#22d3ee')('╚██████╔╝') + chalk.hex('#38bdf8')('██║  ██║') + chalk.hex('#818cf8')('██████╔╝') + chalk.hex('#a78bfa')('██║   ██║  ') + '  ' + chalk.hex('#c084fc')('██║  ██║'));
+    console.log(chalk.hex('#22d3ee')(' ╚═════╝ ') + chalk.hex('#38bdf8')('╚═╝  ╚═╝') + chalk.hex('#818cf8')('╚═════╝ ') + chalk.hex('#a78bfa')('╚═╝   ╚═╝  ') + '  ' + chalk.hex('#c084fc')('╚═╝  ╚═╝'));
+    console.log(chalk.hex('#c084fc')('orbit α · autonomous cli developer agent'));
+    console.log('');
 
     const program = new Command("orbit");
 
