@@ -21,12 +21,12 @@ const currentDirPath = dirname(currentFilePath);
 dotenv.config({ path: resolve(currentDirPath, "../../../.env"), quiet: true });
 
 async function main() {
-    console.log(chalk.hex('#22d3ee')(' ██████╗ ') + chalk.hex('#38bdf8')('██████╗ ') + chalk.hex('#818cf8')('██████╗ ') + chalk.hex('#a78bfa')('██╗████████╗') + '   ' + chalk.hex('#c084fc')(' █████╗ '));
-    console.log(chalk.hex('#22d3ee')('██╔═══██╗') + chalk.hex('#38bdf8')('██╔══██╗') + chalk.hex('#818cf8')('██╔══██╗') + chalk.hex('#a78bfa')('██║╚══██╔══╝') + '  ' + chalk.hex('#c084fc')('██╔══██╗'));
-    console.log(chalk.hex('#22d3ee')('██║   ██║') + chalk.hex('#38bdf8')('██████╔╝') + chalk.hex('#818cf8')('██████╔╝') + chalk.hex('#a78bfa')('██║   ██║  ') + '  ' + chalk.hex('#c084fc')('███████║'));
-    console.log(chalk.hex('#22d3ee')('██║   ██║') + chalk.hex('#38bdf8')('██╔══██╗') + chalk.hex('#818cf8')('██╔══██╗') + chalk.hex('#a78bfa')('██║   ██║  ') + '  ' + chalk.hex('#c084fc')('██╔══██║'));
-    console.log(chalk.hex('#22d3ee')('╚██████╔╝') + chalk.hex('#38bdf8')('██║  ██║') + chalk.hex('#818cf8')('██████╔╝') + chalk.hex('#a78bfa')('██║   ██║  ') + '  ' + chalk.hex('#c084fc')('██║  ██║'));
-    console.log(chalk.hex('#22d3ee')(' ╚═════╝ ') + chalk.hex('#38bdf8')('╚═╝  ╚═╝') + chalk.hex('#818cf8')('╚═════╝ ') + chalk.hex('#a78bfa')('╚═╝   ╚═╝  ') + '  ' + chalk.hex('#c084fc')('╚═╝  ╚═╝'));
+    console.log(chalk.hex('#22d3ee')(' ██████╗ ') + chalk.hex('#38bdf8')('██████╗ ') + chalk.hex('#818cf8')('██████╗ ') + chalk.hex('#a78bfa')('██╗████████╗') + '   ' + chalk.hex('#c084fc')('  █████╗ '));
+    console.log(chalk.hex('#22d3ee')('██╔═══██╗') + chalk.hex('#38bdf8')('██╔══██╗') + chalk.hex('#818cf8')('██╔══██╗') + chalk.hex('#a78bfa')('██║╚══██╔══╝') + '  ' + chalk.hex('#c084fc')(' ██╔══██╗'));
+    console.log(chalk.hex('#22d3ee')('██║   ██║') + chalk.hex('#38bdf8')('██████╔╝') + chalk.hex('#818cf8')('██████╔╝') + chalk.hex('#a78bfa')('██║   ██║  ') + '  ' + chalk.hex('#c084fc')(' ███████║'));
+    console.log(chalk.hex('#22d3ee')('██║   ██║') + chalk.hex('#38bdf8')('██╔══██╗') + chalk.hex('#818cf8')('██╔══██╗') + chalk.hex('#a78bfa')('██║   ██║  ') + '  ' + chalk.hex('#c084fc')(' ██╔══██║'));
+    console.log(chalk.hex('#22d3ee')('╚██████╔╝') + chalk.hex('#38bdf8')('██║  ██║') + chalk.hex('#818cf8')('██████╔╝') + chalk.hex('#a78bfa')('██║   ██║  ') + '  ' + chalk.hex('#c084fc')(' ██║  ██║'));
+    console.log(chalk.hex('#22d3ee')(' ╚═════╝ ') + chalk.hex('#38bdf8')('╚═╝  ╚═╝') + chalk.hex('#818cf8')('╚═════╝ ') + chalk.hex('#a78bfa')('╚═╝   ╚═╝  ') + '  ' + chalk.hex('#c084fc')(' ╚═╝  ╚═╝'));
     console.log(chalk.hex('#c084fc')('orbit α · autonomous cli developer agent'));
     console.log('');
 
