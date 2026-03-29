@@ -194,7 +194,7 @@ async function getAIResponse(conversationId) {
   const dbMessages = await chatService.getMessages(conversationId);
   const aiMessages = chatService.formatMessagesForAI(dbMessages);
 
-  const tools = getEnabledTools();
+  const tools = getEnabledTools({ outputDirectory: process.cwd() });
   
   let fullResponse = "";
   let isFirstChunk = true;
