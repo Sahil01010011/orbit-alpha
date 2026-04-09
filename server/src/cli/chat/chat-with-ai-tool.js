@@ -132,10 +132,11 @@ async function initConversation(userId, conversationId = null, mode = "tool") {
     : `\n${chalk.gray("No tools enabled")}`;
   const { activeName, requestedName, isFallback } = getActiveProviderInfo();
   const modelLine = isFallback
-    ? chalk.yellow(
-        `Model: ${activeName} (${requestedName} requested — API key not found)`
+    ? chalk.gray("Model: ") +
+      chalk.yellow(
+        activeName + ` (${requestedName} requested — API key not found)`
       )
-    : chalk.green(`Model: ${activeName}`);
+    : chalk.gray("Model: ") + chalk.green(activeName);
   
   // Display conversation info in a box
   const conversationInfo = boxen(

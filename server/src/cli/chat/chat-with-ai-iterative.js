@@ -1040,10 +1040,11 @@ export async function startIterativeAgentChat(conversationId = null, workingDire
     spinner.success("Conversation loaded");
     const { activeName, requestedName, isFallback } = getActiveProviderInfo();
     const modelLine = isFallback
-      ? chalk.yellow(
-          `Model: ${activeName} (${requestedName} requested — API key not found)`
+      ? chalk.gray("Model: ") +
+        chalk.yellow(
+          activeName + ` (${requestedName} requested — API key not found)`
         )
-      : chalk.green(`Model: ${activeName}`);
+      : chalk.gray("Model: ") + chalk.green(activeName);
 
     console.log(
       boxen(

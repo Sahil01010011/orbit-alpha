@@ -4,8 +4,8 @@ import { ClaudeProvider } from './providers/claude-provider.js';
 import { OpenAIProvider } from './providers/openai-provider.js';
 import { validateProvider } from './provider-interface.js';
 
-let _activeProviderName = null;
-let _requestedProviderName = null;
+let _activeName = 'Gemini 2.5 Flash';
+let _requestedName = 'Gemini 2.5 Flash';
 let _isFallback = false;
 
 const PROVIDERS = {
@@ -24,7 +24,7 @@ export function getProvider() {
   const factory = PROVIDERS[key] || PROVIDERS['gemini'];
   const provider = factory();
   validateProvider(provider);
-  _requestedProviderName = provider.getProviderName();
+  _requestedName = provider.getProviderName();
   _isFallback = false;
   if (!provider.isAvailable()) {
     _isFallback = true;
@@ -35,10 +35,10 @@ export function getProvider() {
     );
     const fallbackProvider = new GeminiProvider();
     validateProvider(fallbackProvider);
-    _activeProviderName = fallbackProvider.getProviderName();
+    _activeName = fallbackProvider.getProviderName();
     return fallbackProvider;
   }
-  _activeProviderName = provider.getProviderName();
+  _activeName = provider.getProviderName();
   return provider;
 }
 
@@ -86,8 +86,8 @@ export function getProviderInfo() {
 
 export function getActiveProviderInfo() {
   return {
-    activeName: _activeProviderName,
-    requestedName: _requestedProviderName,
+    activeName: _activeName,
+    requestedName: _requestedName,
     isFallback: _isFallback,
   };
 }
