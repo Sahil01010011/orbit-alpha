@@ -4,6 +4,10 @@ import { ClaudeProvider } from './providers/claude-provider.js';
 import { OpenAIProvider } from './providers/openai-provider.js';
 import { validateProvider } from './provider-interface.js';
 
+let _activeProviderName = null;
+let _requestedProviderName = null;
+let _isFallback = false;
+
 const PROVIDERS = {
   gemini: () => new GeminiProvider(),
   claude: () => new ClaudeProvider(),
@@ -20,7 +24,10 @@ export function getProvider() {
   const factory = PROVIDERS[key] || PROVIDERS['gemini'];
   const provider = factory();
   validateProvider(provider);
+  _requestedProviderName = provider.getProviderName();
+  _isFallback = false;
   if (!provider.isAvailable()) {
+    _isFallback = true;
     console.log(
       chalk.yellow(
         `⚠  ${provider.getProviderName()} API key not found. Falling back to Gemini.`
@@ -28,8 +35,10 @@ export function getProvider() {
     );
     const fallbackProvider = new GeminiProvider();
     validateProvider(fallbackProvider);
+    _activeProviderName = fallbackProvider.getProviderName();
     return fallbackProvider;
   }
+  _activeProviderName = provider.getProviderName();
   return provider;
 }
 
@@ -73,4 +82,12 @@ export function getProviderInfo() {
       available: !!process.env.OPENAI_API_KEY,
     },
   ];
+}
+
+export function getActiveProviderInfo() {
+  return {
+    activeName: _activeProviderName,
+    requestedName: _requestedProviderName,
+    isFallback: _isFallback,
+  };
 }

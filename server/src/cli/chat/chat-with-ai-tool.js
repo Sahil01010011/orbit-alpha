@@ -5,6 +5,7 @@ import yoctoSpinner from "yocto-spinner";
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
 import { AIService } from "../ai/google-service.js";
+import { getActiveProviderInfo } from "../ai/provider-factory.js";
 import { ChatService } from "../../service/chat.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
 import prisma from "../../lib/db.js";
@@ -129,10 +130,16 @@ async function initConversation(userId, conversationId = null, mode = "tool") {
   const toolsDisplay = enabledToolNames.length > 0 
     ? `\n${chalk.gray("Active Tools:")} ${enabledToolNames.join(", ")}`
     : `\n${chalk.gray("No tools enabled")}`;
+  const { activeName, requestedName, isFallback } = getActiveProviderInfo();
+  const modelLine = isFallback
+    ? chalk.yellow(
+        `Model: ${activeName} (${requestedName} requested — API key not found)`
+      )
+    : chalk.green(`Model: ${activeName}`);
   
   // Display conversation info in a box
   const conversationInfo = boxen(
-    `${chalk.bold("Conversation")}: ${conversation.title}\n${chalk.gray("ID: " + conversation.id)}\n${chalk.gray("Mode: " + conversation.mode)}${toolsDisplay}`,
+    `${chalk.bold("Conversation")}: ${conversation.title}\n${chalk.gray("ID: " + conversation.id)}\n${chalk.gray("Mode: " + conversation.mode)}\n${modelLine}${toolsDisplay}`,
     {
       padding: 1,
       margin: { top: 1, bottom: 1 },
