@@ -490,8 +490,7 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
     } catch (error) {
       messages = fillOrphanedToolResults(messages);
 
-      const errorMessage =
-        typeof error?.message === "string" ? error.message : String(error?.message ?? "");
+      const errorMessage = String(error?.message ?? "");
       const isRateLimited =
         error?.status === 429 ||
         errorMessage.includes("429") ||
