@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import { GeminiProvider } from './providers/gemini-provider.js';
 import { ClaudeProvider } from './providers/claude-provider.js';
 import { OpenAIProvider } from './providers/openai-provider.js';
@@ -19,6 +20,16 @@ export function getProvider() {
   const factory = PROVIDERS[key] || PROVIDERS['gemini'];
   const provider = factory();
   validateProvider(provider);
+  if (!provider.isAvailable()) {
+    console.log(
+      chalk.yellow(
+        `⚠  ${provider.getProviderName()} API key not found. Falling back to Gemini.`
+      )
+    );
+    const fallbackProvider = new GeminiProvider();
+    validateProvider(fallbackProvider);
+    return fallbackProvider;
+  }
   return provider;
 }
 
