@@ -9,7 +9,7 @@ export class ClaudeProvider {
   }
 
   getProviderName() {
-    return "Claude Sonnet 4.5";
+    return "Claude Sonnet 3.5"; // it can be changed like Claude Sonnet 4.6
   }
 
   isAvailable() {
@@ -19,7 +19,7 @@ export class ClaudeProvider {
   async sendMessage(messages, onChunk, { tools, system } = {}) {
     try {
       const request = {
-        model: "claude-sonnet-4-5-20251001",
+        model: "claude-3-5-sonnet-20241022", //model: "claude-sonnet-4-5-20251001",
         max_tokens: 8096,
         messages,
         ...(system && { system }),
