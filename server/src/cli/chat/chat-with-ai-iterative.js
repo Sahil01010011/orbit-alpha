@@ -5,7 +5,7 @@ import yoctoSpinner from "yocto-spinner";
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
 import { AIService } from "../ai/google-service.js";
-import { getProvider } from "../ai/provider-factory.js";
+import { getActiveProviderInfo, getProvider } from "../ai/provider-factory.js";
 import { ChatService } from "../../service/chat.service.js";
 import { AgentTaskService } from "../../service/agentTask.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
@@ -1038,12 +1038,19 @@ export async function startIterativeAgentChat(conversationId = null, workingDire
       "agent"
     );
     spinner.success("Conversation loaded");
+    const { activeName, requestedName, isFallback } = getActiveProviderInfo();
+    const modelLine = isFallback
+      ? chalk.yellow(
+          `Model: ${activeName} (${requestedName} requested — API key not found)`
+        )
+      : chalk.green(`Model: ${activeName}`);
 
     console.log(
       boxen(
         `${chalk.bold("Conversation:")} ${conversation.title}\n` +
           `${chalk.gray("ID:")} ${conversation.id}\n` +
           `${chalk.gray("Mode:")} ${chalk.cyan("Iterative Agent")}\n` +
+          `${modelLine}\n` +
           `${chalk.gray("Output Directory:")} ${chalk.white(workingDirectory)}`,
         {
           padding: 1,

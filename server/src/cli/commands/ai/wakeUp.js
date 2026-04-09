@@ -57,7 +57,6 @@ async function selectModelProvider() {
       process.env.ORBITAL_MODEL_PROVIDER = "gemini";
       return;
     }
-    console.log(chalk.green(`\n✓ Using ${chosenProvider.name}\n`));
   }
 }
 
