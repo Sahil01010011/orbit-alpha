@@ -1,8 +1,12 @@
 import { GeminiProvider } from './providers/gemini-provider.js';
+import { ClaudeProvider } from './providers/claude-provider.js';
+import { OpenAIProvider } from './providers/openai-provider.js';
 import { validateProvider } from './provider-interface.js';
 
 const PROVIDERS = {
   gemini: () => new GeminiProvider(),
+  claude: () => new ClaudeProvider(),
+  openai: () => new OpenAIProvider(),
 };
 
 /**
@@ -31,4 +35,31 @@ export function getAvailableProviders() {
  */
 export function registerProvider(key, factory) {
   PROVIDERS[key] = factory;
+}
+
+/**
+ * Returns display info for all providers including availability status.
+ * Used by the startup menu to show which providers have API keys configured.
+ */
+export function getProviderInfo() {
+  return [
+    {
+      key: 'gemini',
+      name: 'Gemini 2.5 Flash',
+      hint: 'Requires GOOGLE_GENERATIVE_AI_API_KEY',
+      available: !!process.env.GOOGLE_GENERATIVE_AI_API_KEY,
+    },
+    {
+      key: 'claude',
+      name: 'Claude Sonnet 4.5',
+      hint: 'Requires ANTHROPIC_API_KEY',
+      available: !!process.env.ANTHROPIC_API_KEY,
+    },
+    {
+      key: 'openai',
+      name: 'GPT-4o',
+      hint: 'Requires OPENAI_API_KEY',
+      available: !!process.env.OPENAI_API_KEY,
+    },
+  ];
 }
