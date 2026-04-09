@@ -6,6 +6,9 @@ import { promises as fs } from "fs";
 import { getStoredToken } from "../auth/login.js";
 import prisma from "../../../lib/db.js";
 import { select, text, confirm, isCancel, cancel } from "@clack/prompts";
+import { getProviderInfo, registerProvider, getProvider } from "../../ai/provider-factory.js";
+import { ClaudeProvider } from "../../ai/providers/claude-provider.js";
+import { OpenAIProvider } from "../../ai/providers/openai-provider.js";
 import { startChat } from "../../chat/chat-with-ai.js";
 import { startToolChat } from "../../chat/chat-with-ai-tool.js";
 import { startAgentChat } from "../../chat/chat-with-ai-agent.js";
@@ -17,6 +20,40 @@ const chatService = new ChatService();
 
 // Sentinel value used to signal "go back to main menu" from sub-prompts.
 const BACK = "__BACK__";
+
+async function selectModelProvider() {
+  const providers = getProviderInfo();
+
+  const options = providers.map((p) => ({
+    value: p.key,
+    label: p.name,
+    hint: p.available
+      ? "API key configured ✓"
+      : `Not configured — ${p.hint}`,
+  }));
+
+  const selected = await select({
+    message: chalk.cyan("Select AI model:"),
+    options,
+    initialValue: "gemini",
+  });
+
+  if (isCancel(selected)) {
+    cancel(chalk.yellow("Model selection cancelled"));
+    process.exit(0);
+  }
+
+  const chosenProvider = providers.find((p) => p.key === selected);
+
+  if (!chosenProvider.available) {
+    console.log(chalk.red(`\n✗ ${chosenProvider.name} requires ${chosenProvider.hint}\n`));
+    console.log(chalk.yellow("Falling back to Gemini.\n"));
+    process.env.ORBITAL_MODEL_PROVIDER = "gemini";
+  } else {
+    process.env.ORBITAL_MODEL_PROVIDER = selected;
+    console.log(chalk.green(`\n✓ Using ${chosenProvider.name}\n`));
+  }
+}
 
 /**
  * Prompt the user for an output directory.
@@ -175,6 +212,8 @@ const wakeUpAction = async (options, invocationDir) => {
   }
 
   console.log(chalk.green(`\nWelcome back, ${user.name}!\n`));
+
+  await selectModelProvider();
 
   // Persistent main-menu loop — exits only when the user explicitly chooses "Exit"
   // or presses Ctrl+C.
