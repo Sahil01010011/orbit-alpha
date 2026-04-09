@@ -53,8 +53,7 @@ async function selectModelProvider() {
     process.env.ORBITAL_MODEL_PROVIDER = selected;
     const provider = getProvider();
     const isSelectedProvider = provider.getProviderName() === chosenProvider.name;
-    if (!provider.isAvailable() || !isSelectedProvider) {
-      console.log(chalk.yellow("Falling back to Gemini.\n"));
+    if (!isSelectedProvider) {
       process.env.ORBITAL_MODEL_PROVIDER = "gemini";
       return;
     }
