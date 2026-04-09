@@ -62,7 +62,7 @@ export function getProviderInfo() {
     },
     {
       key: 'claude',
-      name: 'Claude Sonnet 4.5',
+      name: 'Claude Sonnet 3.5', //name: 'Claude Sonnet 4.5'
       hint: 'Requires ANTHROPIC_API_KEY',
       available: !!process.env.ANTHROPIC_API_KEY,
     },
