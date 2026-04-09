@@ -17,7 +17,8 @@ export async function compressIfNeeded(messages, aiService) {
       "Provide a concise technical summary of this conversation. Preserve: decisions made, files created or modified, errors encountered, current task state.\n\n" +
       JSON.stringify(olderMessages);
     const summary = await aiService.getMessage(prompt);
-    const summaryMessage = { role: "assistant", content: "Session summary: " + summary };
+    const summaryText = typeof summary === "string" ? summary : String(summary ?? "");
+    const summaryMessage = { role: "assistant", content: "Session summary: " + summaryText };
     return [summaryMessage, ...recentMessages];
   } catch (error) {
     return messages;
