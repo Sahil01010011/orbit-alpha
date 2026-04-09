@@ -363,22 +363,26 @@ function displayContextSummary(context) {
  * @param {*} raw - The value returned by the tool's execute function
  * @returns {string}
  */
-function formatToolResult(raw) {
-  let msg;
-  if (typeof raw === "string") {
-    // Tool results are JSON-stringified; try to extract the meaningful field for display.
+export function formatToolResult(raw) {
+  if (raw === undefined || raw === null) return '(no result)';
+  if (typeof raw === 'string') {
     try {
       const parsed = JSON.parse(raw);
       const inner = parsed?.result ?? parsed?.error ?? raw;
-      msg = typeof inner === "string" ? inner : JSON.stringify(inner);
-    } catch (_) {
-      msg = raw;
+      return typeof inner === 'string'
+        ? inner
+        : JSON.stringify(inner, null, 2);
+    } catch {
+      return raw;
     }
-  } else {
-    // Legacy/fallback path for plain objects
-    msg = raw?.result ?? raw?.error ?? JSON.stringify(raw);
   }
-  return String(msg).slice(0, TOOL_RESULT_SUMMARY_MAX_LENGTH);
+  if (typeof raw === 'object') {
+    const inner = raw?.result ?? raw?.error ?? raw;
+    return typeof inner === 'string'
+      ? inner
+      : JSON.stringify(inner, null, 2);
+  }
+  return String(raw);
 }
 
 async function executeStep(loopState, rateLimitState) {
