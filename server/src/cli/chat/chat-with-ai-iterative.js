@@ -5,6 +5,7 @@ import yoctoSpinner from "yocto-spinner";
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
 import { AIService } from "../ai/google-service.js";
+import { getProvider } from "../ai/provider-factory.js";
 import { ChatService } from "../../service/chat.service.js";
 import { AgentTaskService } from "../../service/agentTask.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
@@ -47,7 +48,7 @@ marked.use(
 
 // ─── Services ─────────────────────────────────────────────────────────────────
 
-const aiService = new AIService();
+const aiService = getProvider();
 const chatService = new ChatService();
 const agentTaskService = new AgentTaskService();
 
