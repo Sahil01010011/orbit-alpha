@@ -13,6 +13,10 @@ import { z } from "zod";
 import { readProjectContext, formatContextForPrompt } from "../contextReader.js";
 import { ORBITAL_SYSTEM_PROMPT } from "../../config/agent.config.js";
 import { getToolSchemas } from "../../tools/index.js";
+import { TerminalReason } from "../agent/terminal-reason.js";
+import { CIRCUIT_BREAKER, backoffDelay } from "../agent/circuit-breaker.js";
+import { compressIfNeeded } from "../agent/context-compressor.js";
+import { fillOrphanedToolResults } from "../agent/orphan-guard.js";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -376,7 +380,7 @@ function formatToolResult(raw) {
   return String(msg).slice(0, TOOL_RESULT_SUMMARY_MAX_LENGTH);
 }
 
-async function executeStep(loopState) {
+async function executeStep(loopState, rateLimitState) {
   const stepIndex = loopState.currentStep;
   const step = loopState.plan[stepIndex];
   const stepNum = stepIndex + 1;
@@ -401,7 +405,7 @@ async function executeStep(loopState) {
     ? `\n${formatContextForPrompt(loopState.projectContext)}\n`
     : "";
 
-  const messages = [
+  let messages = [
     {
       role: "user",
       content: `You are an AI reasoning agent executing a step as part of a larger plan.\n${contextBlock}
@@ -435,51 +439,81 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
   const toolSchemas = getToolSchemas({ outputDirectory: loopState.outputDirectory });
   const tools = Object.keys(toolSchemas).length > 0 ? toolSchemas : undefined;
 
-  try {
-    // Uses the existing sendMessage / tool-calling infrastructure
-    const result = await aiService.sendMessage(messages, (chunk) => {
-      if (isFirstChunk) {
-        stopSpinnerOnce();
-        console.log(
-          "\n" + chalk.bold(`  📝 Step ${stepNum} output:`)
-        );
-        console.log(chalk.gray("  " + "─".repeat(55)));
-        isFirstChunk = false;
-      }
-      stepResult += chunk;
-      process.stdout.write(chalk.white(chunk));
-    }, {
-      system: ORBITAL_SYSTEM_PROMPT,
-      ...(tools && { tools }),
-      onToolCall: (toolCall, toolResult) => {
-        stopSpinnerOnce();
-        console.log(chalk.cyan(`\n  🔧 Invoking tool: ${toolCall.toolName}`));
-        if (toolResult !== undefined) {
-          console.log(chalk.green(`  ✔ Tool result: ${formatToolResult(toolResult.result)}`));
+  while (true) {
+    messages = await compressIfNeeded(messages, aiService);
+
+    try {
+      // Uses the existing sendMessage / tool-calling infrastructure
+      const result = await aiService.sendMessage(messages, (chunk) => {
+        if (isFirstChunk) {
+          stopSpinnerOnce();
+          console.log(
+            "\n" + chalk.bold(`  📝 Step ${stepNum} output:`)
+          );
+          console.log(chalk.gray("  " + "─".repeat(55)));
+          isFirstChunk = false;
         }
-      },
-    });
+        stepResult += chunk;
+        process.stdout.write(chalk.white(chunk));
+      }, {
+        system: ORBITAL_SYSTEM_PROMPT,
+        ...(tools && { tools }),
+        onToolCall: (toolCall, toolResult) => {
+          stopSpinnerOnce();
+          console.log(chalk.cyan(`\n  🔧 Invoking tool: ${toolCall.toolName}`));
+          if (toolResult !== undefined) {
+            console.log(chalk.green(`  ✔ Tool result: ${formatToolResult(toolResult.result)}`));
+          }
+        },
+      });
 
-    stopSpinnerOnce();
+      if (rateLimitState) {
+        rateLimitState.count = 0;
+      }
 
-    console.log("\n" + chalk.gray("  " + "─".repeat(55)) + "\n");
+      stopSpinnerOnce();
 
-    let content = result.content || stepResult;
+      console.log("\n" + chalk.gray("  " + "─".repeat(55)) + "\n");
 
-    // When the model only invokes tools without generating follow-up text,
-    // synthesise the step output from the tool results so the step is non-empty.
-    if (!content && result.toolResults && result.toolResults.length > 0) {
-      content = result.toolResults
-        .map((tr) => `Tool ${tr.toolName}: ${formatToolResult(tr.result)}`)
-        .join("\n");
+      let content = result.content || stepResult;
+
+      // When the model only invokes tools without generating follow-up text,
+      // synthesise the step output from the tool results so the step is non-empty.
+      if (!content && result.toolResults && result.toolResults.length > 0) {
+        content = result.toolResults
+          .map((tr) => `Tool ${tr.toolName}: ${formatToolResult(tr.result)}`)
+          .join("\n");
+      }
+
+      logLoop(loopState, `Step ${stepNum} executed (${content.length} chars)`);
+      return content;
+    } catch (error) {
+      messages = fillOrphanedToolResults(messages);
+
+      const errorMessage =
+        typeof error?.message === "string" ? error.message : String(error?.message ?? "");
+      const isRateLimited =
+        error?.status === 429 ||
+        errorMessage.includes("429") ||
+        errorMessage.toLowerCase().includes("rate limit");
+
+      if (isRateLimited && rateLimitState) {
+        if (rateLimitState.count < CIRCUIT_BREAKER.MAX_RETRY_ATTEMPTS) {
+          rateLimitState.count += 1;
+          const delay = backoffDelay(rateLimitState.count);
+          await new Promise((resolve) => setTimeout(resolve, delay));
+          continue;
+        }
+
+        stopSpinnerOnce();
+        console.log(chalk.yellow(TerminalReason.RATE_LIMITED));
+        return null;
+      }
+
+      spinner.error(`Step ${stepNum} execution failed`);
+      logLoop(loopState, `Step ${stepNum} error: ${error.message}`);
+      throw error;
     }
-
-    logLoop(loopState, `Step ${stepNum} executed (${content.length} chars)`);
-    return content;
-  } catch (error) {
-    spinner.error(`Step ${stepNum} execution failed`);
-    logLoop(loopState, `Step ${stepNum} error: ${error.message}`);
-    throw error;
   }
 }
 
@@ -596,8 +630,24 @@ async function runReasoningLoop(loopState, conversationId) {
 
   // ── Phase 2: Act → Observe → Reflect loop ─────────────────────────────────
   let totalStepsExecuted = 0;
+  let turnCount = 0;
+  let retryCount = 0;
+  const rateLimitState = {
+    get count() {
+      return retryCount;
+    },
+    set count(value) {
+      retryCount = value;
+    },
+  };
 
   while (loopState.status !== "complete" && loopState.status !== "failed") {
+    turnCount++;
+    if (turnCount > CIRCUIT_BREAKER.MAX_TURNS) {
+      console.log(chalk.yellow("Agent reached max turns limit. Exiting cleanly."));
+      break;
+    }
+
     const stepIndex = loopState.currentStep;
 
     // Guard: maximum total steps executed (includes retries, preventing infinite loops)
@@ -628,7 +678,7 @@ async function runReasoningLoop(loopState, conversationId) {
     // ── Act ────────────────────────────────────────────────────────────────
     let stepResult;
     try {
-      stepResult = await executeStep(loopState);
+      stepResult = await executeStep(loopState, rateLimitState);
     } catch (error) {
       loopState.status = "failed";
       loopState.finalOutput = `Unrecoverable error at step ${
@@ -646,6 +696,13 @@ async function runReasoningLoop(loopState, conversationId) {
       if (loopState.taskId) {
         await agentTaskService.failTask(loopState.taskId, loopState.finalOutput).catch(() => {});
       }
+      break;
+    }
+
+    if (stepResult === null) {
+      loopState.status = "failed";
+      loopState.finalOutput = TerminalReason.RATE_LIMITED;
+      logLoop(loopState, "Terminating: rate limit exceeded");
       break;
     }
 
