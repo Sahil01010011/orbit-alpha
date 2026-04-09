@@ -16,11 +16,16 @@ The key difference from using ChatGPT or Claude in a browser is that Orbital tak
 
 ---
 
-## Features
+## What is working
 
 - **GitHub OAuth authentication** — Secure login with your GitHub account. No passwords or API tokens to manage on the client side.
 - **AI Chat mode** — Multi-turn conversation with an AI that knows your project. Ask questions, get explanations, request code snippets, and keep the context going across multiple messages.
 - **Tool Calling mode** — Explicitly invoke any of the 21 registered developer tools. Useful when you want direct, predictable tool execution rather than a full conversation.
+- **All 21 tools working in Tool Calling mode** — Full tool set is available and executes correctly.
+- **Agent loop hardening** — Circuit breakers, context compression, orphan guard, and typed terminal exits.
+- **Multi-model support** — Gemini, Claude Sonnet 3.5, and GPT-4o selectable at startup.
+- **Model selection menu** — Choose the active provider at `orbit wakeup` startup.
+- **Automatic Gemini fallback** — Missing provider API keys fall back to Gemini with a warning.
 - **Iterative Agentic mode** — Give the agent a goal. It creates a plan, works through each step, observes the result, and adjusts before continuing. The loop runs up to 10 steps automatically.
 - **Conversation history** — Every session is saved to the database and can be resumed at any time. Your context is never lost.
 - **Conversation deletion** — Remove old or unwanted sessions cleanly from the history menu.
@@ -45,7 +50,7 @@ Before you start, make sure you have the following installed and ready:
 
 ---
 
-## Installation
+## How to run locally
 
 Follow these steps in order. Each step builds on the previous one.
 
@@ -116,6 +121,16 @@ GITHUB_CLIENT_SECRET="your-github-oauth-app-client-secret"
 # Get a free key at https://aistudio.google.com
 GOOGLE_GENERATIVE_AI_API_KEY="your-google-gemini-api-key"
 
+# Your Anthropic API key (Claude Sonnet 3.5).
+ANTHROPIC_API_KEY="your-anthropic-api-key"
+
+# Your OpenAI API key (GPT-4o).
+OPENAI_API_KEY="your-openai-api-key"
+
+# (Optional) Select the model provider: gemini, claude, openai.
+# Leave blank to use the default: gemini
+ORBITAL_MODEL_PROVIDER=""
+
 # (Optional) The Gemini model to use.
 # Leave blank to use the default: gemini-2.5-flash
 ORBITAI_MODEL=""
@@ -139,7 +154,7 @@ cd server
 npm run dev
 ```
 
-Keep this terminal open. The server must be running whenever you use the CLI.
+Keep this terminal open for the initial GitHub OAuth login. After you authenticate once, the CLI can run without the server.
 
 ### Step 7 — Install the CLI globally
 
@@ -294,6 +309,14 @@ orbit wakeup --iterative
 
 ---
 
+## Architecture
+
+- `server/src/cli/agent/` — Agent loop hardening modules (terminal reason, circuit breaker, context compressor, orphan guard).
+- `server/src/cli/ai/providers/` — Provider implementations for Gemini, Claude Sonnet 3.5, and GPT-4o.
+- `server/src/cli/ai/provider-factory.js` — Single entry point for model access and provider selection.
+
+---
+
 ## Troubleshooting
 
 ### `orbit` command not found
@@ -370,11 +393,23 @@ sudo npm install -g .
 
 ---
 
-## Known Limitations
+## What is broken or incomplete
 
 - **Gemini free tier rate limits** — The free Gemini API tier allows 5 requests per minute. The agentic loop makes multiple requests per step, which causes rate limit errors on tasks with more than a few steps. Workaround: use short, focused goals, or upgrade to a paid Gemini tier.
-- **Tool execution returning undefined** — In some cases, tool `execute` functions do not propagate their return values through the registry correctly. This is under active investigation.
 - **Task state persistence** — `AgentTask` records are written to the database but the resume flow relies primarily on conversation message history. Full task state persistence is partially implemented.
+
+---
+
+## Remaining sessions plan
+
+- [x] Session 8 — Tool Execution Fix
+- [x] Sessions A–D — Agent Loop Hardening
+- [x] Phase 1 — Provider Abstraction
+- [x] Phase 2 — Multi-Model Support
+- [ ] Session 9 — Web Search Tool
+- [ ] Session 10 — Multi-Language Runtime Support
+- [ ] Session 12 — Test Suite
+- [ ] Final — Test suite
 
 ---
 

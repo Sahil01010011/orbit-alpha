@@ -388,6 +388,66 @@ Arrow key navigation in the history select menu was broken because conversation 
 
 ---
 
+### Session 8 — Tool Execution Fix
+
+**What was built:** A registry-backed tool configuration that exposes all 21 tools in Tool Calling mode.
+
+**Approach:** Rewrote `server/src/config/tool.config.js` to source `availableTools` from `getAllTools()` and to call `getToolSchemas(context)` inside `getEnabledTools()`. Updated `server/src/cli/chat/chat-with-ai-tool.js` to pass `{ outputDirectory: process.cwd() }` into `getEnabledTools`. Files touched: `server/src/config/tool.config.js`, `server/src/cli/chat/chat-with-ai-tool.js`.
+
+**Problems:** `tool.config.js` was disconnected from the tool registry and only knew about three Google-native tools, which disabled most tool calls.
+
+**Resolution:** Tool Calling mode now exposes and executes all 21 registered tools correctly.
+
+---
+
+### Sessions A–D — Agent Loop Hardening
+
+**What was built:** A hardened agent loop with typed exit reasons, bounded retries, context compression, and orphaned tool result handling.
+
+**Approach:** Added new modules under `server/src/cli/agent/` (`terminal-reason.js`, `circuit-breaker.js`, `context-compressor.js`, `orphan-guard.js`) and integrated them into `server/src/cli/chat/chat-with-ai-iterative.js` for turn limits, retry backoff, message compaction, and tool result repair. Files touched: `server/src/cli/agent/terminal-reason.js`, `server/src/cli/agent/circuit-breaker.js`, `server/src/cli/agent/context-compressor.js`, `server/src/cli/agent/orphan-guard.js`, `server/src/cli/chat/chat-with-ai-iterative.js`.
+
+**Problems:** The agent loop could run unbounded, grow context indefinitely, and crash on orphaned tool executions.
+
+**Resolution:** The loop now exits cleanly with typed terminal reasons, respects circuit breaker limits, compresses long histories, and repairs missing tool results.
+
+---
+
+### Phase 1 — Provider Abstraction
+
+**What was built:** A provider abstraction layer with a validated interface and a factory entry point.
+
+**Approach:** Added `server/src/cli/ai/provider-interface.js` to define the provider contract, moved Gemini logic into `server/src/cli/ai/providers/gemini-provider.js`, added `server/src/cli/ai/provider-factory.js` for lookup and registration, and converted `server/src/cli/ai/google-service.js` into a backwards-compatible re-export shim. Files touched: `server/src/cli/ai/provider-interface.js`, `server/src/cli/ai/provider-factory.js`, `server/src/cli/ai/providers/gemini-provider.js`, `server/src/cli/ai/google-service.js`.
+
+**Problems:** Model access was hard-wired to Gemini, making additional providers difficult to integrate without orchestrator changes.
+
+**Resolution:** All model access now flows through a single validated provider interface and factory.
+
+---
+
+### Phase 2 — Multi-Model Support
+
+**What was built:** Multi-model provider support with a startup selection menu and API key availability checks.
+
+**Approach:** Added `server/src/cli/ai/providers/claude-provider.js` and `server/src/cli/ai/providers/openai-provider.js`, registered all providers in `server/src/cli/ai/provider-factory.js` with display info, and updated `server/src/cli/commands/ai/wakeUp.js` to prompt for provider selection, set `ORBITAL_MODEL_PROVIDER`, and fall back to Gemini when keys are missing. Files touched: `server/src/cli/ai/providers/claude-provider.js`, `server/src/cli/ai/providers/openai-provider.js`, `server/src/cli/ai/provider-factory.js`, `server/src/cli/commands/ai/wakeUp.js`.
+
+**Problems:** Users could not choose between models or see which providers were configured.
+
+**Resolution:** Gemini, Claude Sonnet 3.5, and GPT-4o are now selectable at startup with safe fallback behavior.
+
+---
+
+### Architecture Note — Server Independence Discovery
+
+**What was built:** Documentation clarification that the Express server is only required for initial OAuth login.
+
+**Approach:** Confirmed the CLI calls provider APIs directly and writes to the database via Prisma without the Express server once authenticated, then updated docs to reflect the standalone flow. Files touched: `README.md`, `TECHNICAL_JOURNAL.md`.
+
+**Problems:** Documentation previously stated that the server must always be running for CLI usage.
+
+**Resolution:** The docs now state that the server is only needed for initial GitHub OAuth authentication.
+
+---
+
 ## Problems Encountered — Master List
 
 ### 1. Gemini Free Tier Rate Limits
