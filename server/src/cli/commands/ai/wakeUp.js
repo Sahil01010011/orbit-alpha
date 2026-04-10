@@ -46,17 +46,18 @@ async function selectModelProvider() {
   const chosenProvider = providers.find((p) => p.key === selected);
 
   if (!chosenProvider.available) {
-    console.log(chalk.red(`\n✗ ${chosenProvider.name} requires ${chosenProvider.hint}\n`));
-    console.log(chalk.yellow("Falling back to Gemini.\n"));
-    process.env.ORBITAL_MODEL_PROVIDER = "gemini";
+    console.log(
+      chalk.red(`\n✗ ${chosenProvider.name} requires ${chosenProvider.hint}`)
+    );
+    console.log(
+      chalk.yellow(
+        `Falling back to Gemini. Add the API key to .env to use ${chosenProvider.name}.\n`
+      )
+    );
+    process.env.ORBITAL_MODEL_PROVIDER = 'gemini';
   } else {
     process.env.ORBITAL_MODEL_PROVIDER = selected;
-    const provider = getProvider();
-    const isSelectedProvider = provider.getProviderName() === chosenProvider.name;
-    if (!isSelectedProvider) {
-      process.env.ORBITAL_MODEL_PROVIDER = "gemini";
-      return;
-    }
+    console.log(chalk.green(`\n✓ Using ${chosenProvider.name}\n`));
   }
 }
 
