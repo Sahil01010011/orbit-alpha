@@ -4,7 +4,7 @@ import { text, isCancel, cancel, intro, outro } from "@clack/prompts";
 import yoctoSpinner from "yocto-spinner";
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
-import { AIService } from "../ai/google-service.js";
+import { getProvider } from "../ai/provider-factory.js";
 import { ChatService } from "../../service/chat.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
 import prisma from "../../lib/db.js";
@@ -32,7 +32,7 @@ marked.use(
 );
 
 // Initialize services
-const aiService = new AIService();
+const aiService = getProvider();
 const chatService = new ChatService();
 
 async function getUserFromToken() {
