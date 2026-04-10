@@ -61,8 +61,8 @@ export class ClaudeProvider {
         usage: finalMessage?.usage,
       };
     } catch (error) {
-      console.error(chalk.red("AI Service Error:"), error.message);
-      console.error(chalk.red("Full error:"), error);
+      // console.error(chalk.red("AI Service Error:"), error.message);
+      // console.error(chalk.red("Full error:"), error);
       throw error;
     }
   }

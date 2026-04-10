@@ -52,13 +52,19 @@ export async function sendMessageWithFallback(
   try {
     return await provider.sendMessage(messages, onChunk, options);
   } catch (error) {
-    const isQuotaError =
-      error?.status === 429 ||
-      error?.code === 'insufficient_quota' ||
-      error?.message?.toLowerCase().includes('quota') ||
-      error?.message?.toLowerCase().includes('rate limit') ||
-      error?.message?.toLowerCase().includes('unauthorized') ||
-      error?.message?.toLowerCase().includes('invalid api key');
+    const isQuotaError = error?.status === 429
+  || error?.status === 400
+  || error?.status === 401
+  || error?.status === 403
+  || error?.code === 'insufficient_quota'
+  || error?.message?.toLowerCase().includes('quota')
+  || error?.message?.toLowerCase().includes('rate limit')
+  || error?.message?.toLowerCase().includes('unauthorized')
+  || error?.message?.toLowerCase().includes('invalid api key')
+  || error?.message?.toLowerCase().includes('credit balance')
+  || error?.message?.toLowerCase().includes('too low')
+  || error?.message?.toLowerCase().includes('billing')
+  || error?.message?.toLowerCase().includes('upgrade');
 
     if (isQuotaError && _activeName !== 'Gemini 2.5 Flash') {
       if (spinner) spinner.stop();

@@ -107,8 +107,8 @@ export class GeminiProvider {
         steps: fullResult.steps,
       };
     } catch (error) {
-      console.error(chalk.red("AI Service Error:"), error.message);
-      console.error(chalk.red("Full error:"), error);
+      // console.error(chalk.red("AI Service Error:"), error.message);
+      // console.error(chalk.red("Full error:"), error);
       throw error;
     }
   }
