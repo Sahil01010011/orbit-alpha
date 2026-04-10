@@ -4,7 +4,11 @@ import { text, isCancel, cancel, intro, outro, multiselect } from "@clack/prompt
 import yoctoSpinner from "yocto-spinner";
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
-import { getProvider, getActiveProviderInfo } from "../ai/provider-factory.js";
+import {
+  getProvider,
+  getActiveProviderInfo,
+  sendMessageWithFallback,
+} from "../ai/provider-factory.js";
 import { ChatService } from "../../service/chat.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
 import prisma from "../../lib/db.js";
@@ -193,7 +197,6 @@ async function saveMessage(conversationId, role, content) {
 }
 
 async function getAIResponse(conversationId) {
-  const aiService = getProvider();
   const spinner = yoctoSpinner({ 
     text: "AI is thinking...", 
     color: "cyan" 
@@ -210,8 +213,8 @@ async function getAIResponse(conversationId) {
   
   try {
     // IMPORTANT: Pass tools in the streamText config
-    const result = await aiService.sendMessage(
-      aiMessages, 
+    const result = await sendMessageWithFallback(
+      aiMessages,
       (chunk) => {
         if (isFirstChunk) {
           spinner.stop();
@@ -227,7 +230,8 @@ async function getAIResponse(conversationId) {
         tools,
         onToolCall: (toolCall) => { toolCallsDetected.push(toolCall); },
         system: ORBITAL_SYSTEM_PROMPT,
-      }
+      },
+      spinner
     );
     
     // Display tool calls if any

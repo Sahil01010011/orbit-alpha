@@ -42,6 +42,43 @@ export function getProvider() {
   return provider;
 }
 
+export async function sendMessageWithFallback(
+  messages,
+  onChunk,
+  options,
+  spinner
+) {
+  const provider = getProvider();
+  try {
+    return await provider.sendMessage(messages, onChunk, options);
+  } catch (error) {
+    const isQuotaError =
+      error?.status === 429 ||
+      error?.code === 'insufficient_quota' ||
+      error?.message?.toLowerCase().includes('quota') ||
+      error?.message?.toLowerCase().includes('rate limit') ||
+      error?.message?.toLowerCase().includes('unauthorized') ||
+      error?.message?.toLowerCase().includes('invalid api key');
+
+    if (isQuotaError && _activeName !== 'Gemini 2.5 Flash') {
+      if (spinner) spinner.stop();
+      console.log(
+        chalk.yellow(
+          `\n⚠  ${_activeName} failed: ${
+            error?.code || error?.message?.slice(0, 60)
+          }`
+        )
+      );
+      console.log(chalk.yellow(`   Falling back to Gemini automatically.\n`));
+      _isFallback = true;
+      _activeName = 'Gemini 2.5 Flash';
+      const fallback = new GeminiProvider();
+      return await fallback.sendMessage(messages, onChunk, options);
+    }
+    throw error;
+  }
+}
+
 /**
  * Returns all registered provider keys.
  */
