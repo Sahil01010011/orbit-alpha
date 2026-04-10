@@ -4,7 +4,7 @@ import { text, isCancel, cancel, intro, outro } from "@clack/prompts";
 import yoctoSpinner from "yocto-spinner";
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
-import { getProvider } from "../ai/provider-factory.js";
+import { getProvider, sendMessageWithFallback } from "../ai/provider-factory.js";
 import { ChatService } from "../../service/chat.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
 import prisma from "../../lib/db.js";
@@ -139,21 +139,25 @@ async function getAIResponse(conversationId) {
   
   let fullResponse = "";
   let isFirstChunk = true;
-  const aiService = getProvider();
   try {
-    const result = await aiService.sendMessage(aiMessages, (chunk) => {
+    const result = await sendMessageWithFallback(
+      aiMessages,
+      (chunk) => {
       
-      // Stop spinner on first chunk and show header
-      if (isFirstChunk) {
-        spinner.stop();
-        console.log("\n");
+        // Stop spinner on first chunk and show header
+        if (isFirstChunk) {
+          spinner.stop();
+          console.log("\n");
         const header = chalk.green.bold("🤖 Assistant:");
         console.log(header);
         console.log(chalk.gray("─".repeat(60)));
         isFirstChunk = false;
-      }
-      fullResponse += chunk;
-    }, { system: ORBITAL_SYSTEM_PROMPT });
+        }
+        fullResponse += chunk;
+      },
+      { system: ORBITAL_SYSTEM_PROMPT },
+      spinner
+    );
     
     // Now render the complete markdown response
     console.log("\n");

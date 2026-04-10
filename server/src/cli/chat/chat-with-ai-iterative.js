@@ -5,7 +5,11 @@ import yoctoSpinner from "yocto-spinner";
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
 import { AIService } from "../ai/google-service.js";
-import { getActiveProviderInfo, getProvider } from "../ai/provider-factory.js";
+import {
+  getActiveProviderInfo,
+  getProvider,
+  sendMessageWithFallback,
+} from "../ai/provider-factory.js";
 import { ChatService } from "../../service/chat.service.js";
 import { AgentTaskService } from "../../service/agentTask.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
@@ -449,7 +453,9 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
 
     try {
       // Uses the existing sendMessage / tool-calling infrastructure
-      const result = await aiService.sendMessage(messages, (chunk) => {
+      const result = await sendMessageWithFallback(
+        messages,
+        (chunk) => {
         const aiService = getProvider();
         if (isFirstChunk) {
           stopSpinnerOnce();
@@ -461,17 +467,26 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
         }
         stepResult += chunk;
         process.stdout.write(chalk.white(chunk));
-      }, {
-        system: ORBITAL_SYSTEM_PROMPT,
-        ...(tools && { tools }),
-        onToolCall: (toolCall, toolResult) => {
-          stopSpinnerOnce();
-          console.log(chalk.cyan(`\n  🔧 Invoking tool: ${toolCall.toolName}`));
-          if (toolResult !== undefined) {
-            console.log(chalk.green(`  ✔ Tool result: ${formatToolResult(toolResult.result)}`));
-          }
         },
-      });
+        {
+          system: ORBITAL_SYSTEM_PROMPT,
+          ...(tools && { tools }),
+          onToolCall: (toolCall, toolResult) => {
+            stopSpinnerOnce();
+            console.log(
+              chalk.cyan(`\n  🔧 Invoking tool: ${toolCall.toolName}`)
+            );
+            if (toolResult !== undefined) {
+              console.log(
+                chalk.green(
+                  `  ✔ Tool result: ${formatToolResult(toolResult.result)}`
+                )
+              );
+            }
+          },
+        },
+        null
+      );
 
       if (rateLimitState) {
         rateLimitState.count = 0;
