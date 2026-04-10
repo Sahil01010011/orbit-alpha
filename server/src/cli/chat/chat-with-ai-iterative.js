@@ -48,7 +48,7 @@ marked.use(
 
 // ─── Services ─────────────────────────────────────────────────────────────────
 
-const aiService = getProvider();
+// const aiService = getProvider();
 const chatService = new ChatService();
 const agentTaskService = new AgentTaskService();
 
@@ -450,6 +450,7 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
     try {
       // Uses the existing sendMessage / tool-calling infrastructure
       const result = await aiService.sendMessage(messages, (chunk) => {
+        const aiService = getProvider();
         if (isFirstChunk) {
           stopSpinnerOnce();
           console.log(

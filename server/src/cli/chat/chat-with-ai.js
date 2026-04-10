@@ -32,7 +32,7 @@ marked.use(
 );
 
 // Initialize services
-const aiService = getProvider();
+// const aiService = getProvider();
 const chatService = new ChatService();
 
 async function getUserFromToken() {
@@ -139,9 +139,10 @@ async function getAIResponse(conversationId) {
   
   let fullResponse = "";
   let isFirstChunk = true;
-  
+  const aiService = getProvider();
   try {
     const result = await aiService.sendMessage(aiMessages, (chunk) => {
+      
       // Stop spinner on first chunk and show header
       if (isFirstChunk) {
         spinner.stop();

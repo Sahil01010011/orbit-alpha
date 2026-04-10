@@ -37,7 +37,7 @@ marked.use(
   })
 );
 
-const aiService = getProvider();
+// const aiService = getProvider();
 const chatService = new ChatService();
 
 async function getUserFromToken() {
@@ -193,6 +193,7 @@ async function saveMessage(conversationId, role, content) {
 }
 
 async function getAIResponse(conversationId) {
+  const aiService = getProvider();
   const spinner = yoctoSpinner({ 
     text: "AI is thinking...", 
     color: "cyan" 
