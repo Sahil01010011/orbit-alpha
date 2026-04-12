@@ -13,5 +13,6 @@ import "./shell.js";
 import "./git.js";
 import "./dependencies.js";
 import "./directory.js";
+import "./web.js";
 
 export { registerTool, getTool, getAllTools, getToolSchemas } from "./registry.js";
