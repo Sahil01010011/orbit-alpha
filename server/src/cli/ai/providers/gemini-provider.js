@@ -1,6 +1,6 @@
 import { google } from "@ai-sdk/google";
 // import prisma from "../lib/db.js";
-import { streamText, generateObject, convertToModelMessages } from "ai";
+import { streamText, generateObject } from "ai";
 import { config } from "../../../config/google.config.js";
 import chalk from "chalk";
 
@@ -46,7 +46,8 @@ export class GeminiProvider {
       // Add tools if provided with maxSteps for multi-step tool calling
       if (tools && Object.keys(tools).length > 0) {
         streamConfig.tools = tools;
-        streamConfig.maxSteps = 5; // Allow up to 5 tool call steps
+        streamConfig.maxSteps = 10; // Allow up to 10 tool call steps
+        streamConfig.toolChoice = 'auto';
 
         // Fire onToolCall in real-time as each step with tool calls finishes,
         // pairing each tool call with its corresponding result.
