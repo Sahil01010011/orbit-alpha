@@ -400,6 +400,22 @@ Arrow key navigation in the history select menu was broken because conversation 
 
 ---
 
+### Session 9 — Web Search Integration
+
+**What was built:** Two new web tools (`web_search`, `fetch_url`) were added and the registered tool count increased from 21 to 23.
+
+**Approach:** Created `server/src/tools/web.js` and registered both tools there. Updated `server/src/tools/index.js` to import `web.js` so registration runs at startup. Added `@tavily/core` to `server/package.json`. Updated `ORBITAL_SYSTEM_PROMPT` to mention both web tools.
+
+`web_search` uses the `@tavily/core` package to query the Tavily search API and returns result titles, URLs, and content snippets, with a maximum of 10 results.
+
+`fetch_url` uses native `fetch`, strips HTML tags, returns plain text, applies a 10-second timeout, and defaults to a maximum of 3000 characters.
+
+**Problems:** The agent lacked native web retrieval capability for current information and page content extraction.
+
+**Resolution:** Web search and URL fetching are now first-class registered tools available to the agent, and the tool layer now exposes 23 total tools.
+
+---
+
 ### Sessions A–D — Agent Loop Hardening
 
 **What was built:** A hardened agent loop with typed exit reasons, bounded retries, context compression, and orphaned tool result handling.
