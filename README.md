@@ -20,8 +20,11 @@ The key difference from using ChatGPT or Claude in a browser is that Orbital tak
 
 - **GitHub OAuth authentication** — Secure login with your GitHub account. No passwords or API tokens to manage on the client side.
 - **AI Chat mode** — Multi-turn conversation with an AI that knows your project. Ask questions, get explanations, request code snippets, and keep the context going across multiple messages.
-- **Tool Calling mode** — Explicitly invoke any of the 21 registered developer tools. Useful when you want direct, predictable tool execution rather than a full conversation.
-- **All 21 tools working in Tool Calling mode** — Full tool set is available and executes correctly.
+- **Tool Calling mode** — Explicitly invoke any of the 23 registered developer tools. Useful when you want direct, predictable tool execution rather than a full conversation.
+- **All 23 tools working in Tool Calling mode** — Full tool set is available and executes correctly.
+- **Web search via Tavily API** — Use the `web_search` tool to retrieve current web results.
+- **URL content fetching** — Use the `fetch_url` tool to retrieve and read page content.
+- **Web tools in Tool Calling and Agentic modes** — Both `web_search` and `fetch_url` are available in Tool Calling and Agentic workflows.
 - **Agent loop hardening** — Circuit breakers, context compression, orphan guard, and typed terminal exits.
 - **Multi-model support** — Gemini, Claude Sonnet 3.5, and GPT-4o selectable at startup.
 - **Model selection menu** — Choose the active provider at `orbit wakeup` startup.
@@ -32,7 +35,7 @@ The key difference from using ChatGPT or Claude in a browser is that Orbital tak
 - **Project context awareness** — Before acting, Orbital scans your project directory, reads `package.json`, detects your framework, and injects that context into the agent's working memory.
 - **Global CLI** — Install once with `npm install -g .` and run `orbit` from any directory on your machine.
 - **Output directory control** — When generating files, Orbital asks you where to write them. Generated files always land where you tell them to — never mixed into the Orbital source code.
-- **21 registered developer tools** — Covering filesystem operations, shell execution, Git commands, dependency management, and directory operations.
+- **23 registered developer tools** — Covering filesystem operations, shell execution, Git commands, dependency management, directory operations, and web retrieval.
 - **Persistent loop** — The CLI stays open and returns you to the main menu after each session. You choose when to exit.
 - **Back navigation** — Every submenu has a back option so you are never stuck.
 
@@ -126,6 +129,9 @@ ANTHROPIC_API_KEY="your-anthropic-api-key"
 
 # Your OpenAI API key (GPT-4o).
 OPENAI_API_KEY="your-openai-api-key"
+
+# Your Tavily API key for web search and URL fetching tools.
+TAVILY_API_KEY="your-tavily-api-key"
 
 # (Optional) Select the model provider: gemini, claude, openai.
 # Leave blank to use the default: gemini
