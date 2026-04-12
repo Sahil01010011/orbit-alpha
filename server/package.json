@@ -34,6 +34,7 @@
     "open": "^11.0.0",
     "openai": "latest",
     "pg": "^8.20.0",
+    "@tavily/core": "latest",
     "yocto-spinner": "^1.0.0",
     "zod": "^4.1.13"
   },
