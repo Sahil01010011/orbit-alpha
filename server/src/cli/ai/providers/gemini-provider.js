@@ -46,8 +46,7 @@ export class GeminiProvider {
       // Add tools if provided with maxSteps for multi-step tool calling
       if (tools && Object.keys(tools).length > 0) {
         streamConfig.tools = tools;
-        streamConfig.maxSteps = 10; // Allow up to 10 tool call steps
-        streamConfig.toolChoice = 'auto';
+        streamConfig.maxSteps = 5; // Allow up to 5 tool call steps
 
         // Fire onToolCall in real-time as each step with tool calls finishes,
         // pairing each tool call with its corresponding result.
@@ -78,16 +77,18 @@ export class GeminiProvider {
         }
       }
 
-      // IMPORTANT: Await the result to get access to steps, toolCalls, etc.
-      const fullResult = await result;
+      const steps = [];
+      for await (const step of result.steps) {
+        steps.push(step);
+      }
       
       const toolCalls = [];
       const toolResults = [];
       
       // Collect tool calls and results from all steps for the return value.
       // onToolCall has already been invoked in real-time via onStepFinish above.
-      if (fullResult.steps && Array.isArray(fullResult.steps)) {
-        for (const step of fullResult.steps) {
+      if (steps && Array.isArray(steps)) {
+        for (const step of steps) {
           if (step.toolCalls && step.toolCalls.length > 0) {
             toolCalls.push(...step.toolCalls);
           }
@@ -99,13 +100,15 @@ export class GeminiProvider {
         }
       }
 
+      const finalResult = await result.response;
+
       return {
         content: fullResponse,
-        finishReason: fullResult.finishReason,
-        usage: fullResult.usage,
+        finishReason: finalResult.finishReason,
+        usage: finalResult.usage,
         toolCalls,
         toolResults,
-        steps: fullResult.steps,
+        steps,
       };
     } catch (error) {
       // console.error(chalk.red("AI Service Error:"), error.message);
