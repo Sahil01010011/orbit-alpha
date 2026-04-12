@@ -34,89 +34,68 @@ export class GeminiProvider {
    * @returns {Promise<Object>} Full response with content, tool calls, and usage
    */
   async sendMessage(messages, onChunk, { tools, onToolCall, system } = {}) {
-    try {
-      const streamConfig = {
-        model: this.model,
-        messages: messages,
-        temperature: config.temperature,
-        maxTokens: config.maxTokens,
-        ...(system && { system }),
-      };
+  try {
+    const streamConfig = {
+      model: this.model,
+      messages: messages,
+      temperature: config.temperature,
+      maxTokens: config.maxTokens,
+      ...(system && { system }),
+    };
 
-      // Add tools if provided with maxSteps for multi-step tool calling
-      if (tools && Object.keys(tools).length > 0) {
-        streamConfig.tools = tools;
-        streamConfig.maxSteps = 5; // Allow up to 5 tool call steps
+    if (tools && Object.keys(tools).length > 0) {
+      streamConfig.tools = tools;
+      streamConfig.maxSteps = 5;
 
-        // Fire onToolCall in real-time as each step with tool calls finishes,
-        // pairing each tool call with its corresponding result.
-        if (onToolCall) {
-          streamConfig.onStepFinish = (stepResult) => {
-            if (stepResult.toolCalls && stepResult.toolCalls.length > 0) {
-              for (const toolCall of stepResult.toolCalls) {
-                const toolResult = stepResult.toolResults?.find(
-                  (r) => r.toolCallId === toolCall.toolCallId
-                );
-                onToolCall(toolCall, toolResult);
-              }
+      if (onToolCall) {
+        streamConfig.onStepFinish = (stepResult) => {
+          if (stepResult.toolCalls && stepResult.toolCalls.length > 0) {
+            for (const toolCall of stepResult.toolCalls) {
+              const toolResult = stepResult.toolResults?.find(
+                (r) => r.toolCallId === toolCall.toolCallId
+              );
+              onToolCall(toolCall, toolResult);
             }
-          };
-        }
-
-      }
-
-      const result = streamText(streamConfig);
-      
-      let fullResponse = "";
-      
-      // Stream text chunks
-      for await (const chunk of result.textStream) {
-        fullResponse += chunk;
-        if (onChunk) {
-          onChunk(chunk);
-        }
-      }
-
-      const steps = [];
-      for await (const step of result.steps) {
-        steps.push(step);
-      }
-      
-      const toolCalls = [];
-      const toolResults = [];
-      
-      // Collect tool calls and results from all steps for the return value.
-      // onToolCall has already been invoked in real-time via onStepFinish above.
-      if (steps && Array.isArray(steps)) {
-        for (const step of steps) {
-          if (step.toolCalls && step.toolCalls.length > 0) {
-            toolCalls.push(...step.toolCalls);
           }
-          
-          // Collect tool results
-          if (step.toolResults && step.toolResults.length > 0) {
-            toolResults.push(...step.toolResults);
-          }
-        }
+        };
       }
-
-      const finalResult = await result.response;
-
-      return {
-        content: fullResponse,
-        finishReason: finalResult.finishReason,
-        usage: finalResult.usage,
-        toolCalls,
-        toolResults,
-        steps,
-      };
-    } catch (error) {
-      // console.error(chalk.red("AI Service Error:"), error.message);
-      // console.error(chalk.red("Full error:"), error);
-      throw error;
     }
-  }
 
+    const result = streamText(streamConfig);
+
+    let fullResponse = "";
+    const toolCalls = [];
+    const toolResults = [];
+    const steps = [];
+
+    // In v5, iterate fullStream which yields all events in order
+    for await (const chunk of result.fullStream) {
+      if (chunk.type === 'text-delta') {
+        fullResponse += chunk.textDelta;
+        if (onChunk) onChunk(chunk.textDelta);
+      } else if (chunk.type === 'tool-call') {
+        toolCalls.push(chunk);
+      } else if (chunk.type === 'tool-result') {
+        toolResults.push(chunk);
+      } else if (chunk.type === 'step-finish') {
+        steps.push(chunk);
+      }
+    }
+
+    const finalResult = await result.response;
+
+    return {
+      content: fullResponse,
+      finishReason: finalResult.finishReason,
+      usage: finalResult.usage,
+      toolCalls,
+      toolResults,
+      steps,
+    };
+  } catch (error) {
+    throw error;
+  }
+}
   /**
    * Get a non-streaming response
    * @param {Array} messages - Array of message objects

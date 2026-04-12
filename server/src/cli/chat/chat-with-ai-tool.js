@@ -280,7 +280,7 @@ async function getAIResponse(conversationId) {
         result.toolResults
           .map(
             (tr) =>
-              `${chalk.green("✅ Tool:")} ${tr.toolName}\n${chalk.gray("Result:")} ${JSON.stringify(tr.result, null, 2).slice(0, 200)}...`,
+              `${chalk.green("✅ Tool:")} ${tr.toolName}\n${chalk.gray("Result:")} ${JSON.stringify(tr.output ?? tr.result ?? tr, null, 2)?.slice(0, 200)}...`,
           )
           .join("\n\n"),
         {
@@ -304,20 +304,21 @@ async function getAIResponse(conversationId) {
 
     // If no text response but tool results exist, synthesize display
     if (!fullResponse && result.toolResults && result.toolResults.length > 0) {
-      fullResponse = result.toolResults
-        .map((tr) => {
-          try {
-            const parsed = JSON.parse(tr.result);
-            const inner = parsed?.result ?? parsed?.error ?? tr.result;
-            return typeof inner === "object"
-              ? JSON.stringify(inner, null, 2)
-              : String(inner);
-          } catch {
-            return String(tr.result);
-          }
-        })
-        .join("\n\n");
-    }
+  fullResponse = result.toolResults
+    .map(tr => {
+      const raw = tr.output ?? tr.result ?? tr;
+      try {
+        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const inner = parsed?.result ?? parsed?.error ?? parsed;
+        return typeof inner === 'object'
+          ? JSON.stringify(inner, null, 2)
+          : String(inner);
+      } catch {
+        return String(raw);
+      }
+    })
+    .join("\n\n");
+}
 
     // Render markdown response
     console.log("\n");
@@ -328,7 +329,7 @@ async function getAIResponse(conversationId) {
     console.log(chalk.gray("─".repeat(60)));
     console.log("\n");
 
-    return result.content || fullResponse;
+    return result.content || fullResponse || "";
 
     return result.content;
   } catch (error) {

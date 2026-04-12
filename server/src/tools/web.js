@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { registerTool } from "./registry.js";
 
+
 registerTool("web_search", {
   description:
     "Search the web for current information, documentation, " +
@@ -12,8 +13,12 @@ registerTool("web_search", {
     max_results: z.number().optional().default(5)
       .describe("Maximum number of results to return (default 5, max 10)"),
   }),
-  execute: async ({ query, max_results = 5 }, context) => {
+  execute: async (args, context) => {
+    const query = args?.query;
+    const max_results = args?.max_results ?? 5;
+    // console.log('DEBUG web_search args:', args);
     try {
+      if (!query) return { success: false, error: 'query is required' };
       const apiKey = process.env.TAVILY_API_KEY;
       if (!apiKey) {
         return { success: false, error: "TAVILY_API_KEY is not set in environment variables" };
