@@ -12,6 +12,7 @@ import "./filesystem.js";
 import "./shell.js";
 import "./git.js";
 import "./dependencies.js";
+import "./package-manager.js";
 import "./directory.js";
 import "./web.js";
 
