@@ -178,6 +178,56 @@ function detectLanguage(dir, folderStructure) {
 }
 
 /**
+ * Detect primary language/runtime and package manager from well-known project markers.
+ * @param {string} dir
+ * @param {object|null} folderStructure
+ * @param {object|null} packageJson
+ * @returns {{ language: string, packageManager: string|null }}
+ */
+function detectStack(dir, folderStructure, packageJson) {
+  const hasFile = (name) => existsSync(join(dir, name));
+
+  // Python
+  const hasRequirements = hasFile("requirements.txt");
+  const hasPyProject = hasFile("pyproject.toml");
+  const hasSetupPy = hasFile("setup.py");
+  const hasPipfile = hasFile("Pipfile");
+  const hasPoetryLock = hasFile("poetry.lock");
+  if (hasRequirements || hasPyProject || hasSetupPy || hasPipfile || hasPoetryLock) {
+    let packageManager = null;
+    if (hasRequirements) packageManager = "pip";
+    else if (hasPoetryLock) packageManager = "poetry";
+    else if (hasPipfile) packageManager = "pipenv";
+    return { language: "python", packageManager };
+  }
+
+  // Rust
+  if (hasFile("Cargo.toml")) {
+    return { language: "rust", packageManager: "cargo" };
+  }
+
+  // Go
+  if (hasFile("go.mod")) {
+    return { language: "go", packageManager: "go mod" };
+  }
+
+  // Ruby
+  if (hasFile("Gemfile")) {
+    return { language: "ruby", packageManager: "gem" };
+  }
+
+  // Node.js / JS / TS
+  const language = detectLanguage(dir, folderStructure);
+  let packageManager = null;
+  if (hasFile("yarn.lock")) packageManager = "yarn";
+  else if (hasFile("pnpm-lock.yaml")) packageManager = "pnpm";
+  else if (hasFile("package-lock.json")) packageManager = "npm";
+  else if (packageJson) packageManager = "npm";
+
+  return { language, packageManager };
+}
+
+/**
  * Check which known config files are present in the working directory.
  * @param {string} dir
  * @returns {Promise<string[]>}
@@ -205,6 +255,7 @@ async function detectConfigFiles(dir) {
  *   packageJson: object|null,
  *   detectedFramework: string|null,
  *   detectedLanguage: string,
+ *   detectedPackageManager: string|null,
  *   configFiles: string[]
  * }>}
  */
@@ -214,7 +265,7 @@ export async function readProjectContext(workingDirectory) {
   const folderStructure = await traverseDir(resolvedDir, 0, 4);
   const packageJson = await readPackageJson(resolvedDir);
   const detectedFramework = detectFramework(packageJson);
-  const detectedLanguage = detectLanguage(resolvedDir, folderStructure);
+  const stack = detectStack(resolvedDir, folderStructure, packageJson);
   const configFiles = await detectConfigFiles(resolvedDir);
 
   return {
@@ -222,7 +273,8 @@ export async function readProjectContext(workingDirectory) {
     folderStructure,
     packageJson,
     detectedFramework,
-    detectedLanguage,
+    detectedLanguage: stack.language,
+    detectedPackageManager: stack.packageManager,
     configFiles,
   };
 }
@@ -240,6 +292,9 @@ export function formatContextForPrompt(context) {
   lines.push("=== PROJECT CONTEXT ===");
   lines.push(`Working Directory: ${context.workingDirectory}`);
   lines.push(`Language: ${context.detectedLanguage}`);
+  if (context.detectedPackageManager) {
+    lines.push(`Package Manager: ${context.detectedPackageManager}`);
+  }
 
   if (context.detectedFramework) {
     lines.push(`Framework: ${context.detectedFramework}`);
