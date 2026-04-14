@@ -6,7 +6,12 @@ const PINCHTAB_BASE = process.env.PINCHTAB_URL || 'http://localhost:9867';
 async function pinchtabRequest(path, method = 'GET', body = null) {
   const options = {
     method,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 
+  'Content-Type': 'application/json',
+  ...(process.env.PINCHTAB_TOKEN && { 
+    'Authorization': `Bearer ${process.env.PINCHTAB_TOKEN}` 
+  }),
+},
     signal: AbortSignal.timeout(15000),
   };
   if (body) options.body = JSON.stringify(body);
@@ -36,7 +41,7 @@ registerTool("browser_navigate", {
     "locally (npm install -g pinchtab && pinchtab).",
   parameters: z.object({
     url: z.string().describe("URL to navigate to"),
-    instance_id: z.string().optional().default("default")
+    instance_id: z.string().optional()
       .describe("PinchTab instance ID"),
   }),
   execute: async (args, context) => {
@@ -76,7 +81,7 @@ registerTool("browser_snapshot", {
     "page as a structured snapshot. Returns clickable elements " +
     "with their reference IDs for use with browser_click.",
   parameters: z.object({
-    instance_id: z.string().optional().default("default"),
+    instance_id: z.string().optional(),
   }),
   execute: async (args, context) => {
     const instance_id = args?.instance_id ?? 'default';
@@ -99,7 +104,7 @@ registerTool("browser_click", {
     "by its reference ID. Get reference IDs from browser_snapshot.",
   parameters: z.object({
     ref: z.string().describe("Element reference ID from snapshot"),
-    instance_id: z.string().optional().default("default"),
+    instance_id: z.string().optional(),
   }),
   execute: async (args, context) => {
     const ref = args?.ref;
@@ -126,7 +131,7 @@ registerTool("browser_fill", {
   parameters: z.object({
     ref: z.string().describe("Element reference ID from snapshot"),
     value: z.string().describe("Text to fill into the input"),
-    instance_id: z.string().optional().default("default"),
+    instance_id: z.string().optional(),
   }),
   execute: async (args, context) => {
     const ref = args?.ref;
@@ -155,7 +160,7 @@ registerTool("browser_extract_text", {
   description: "Extract plain text from the current browser page. " +
     "Token-efficient: ~800 tokens per page vs 5000+ for raw HTML.",
   parameters: z.object({
-    instance_id: z.string().optional().default("default"),
+    instance_id: z.string().optional(),
   }),
   execute: async (args, context) => {
     const instance_id = args?.instance_id ?? 'default';
