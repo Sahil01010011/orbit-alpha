@@ -84,14 +84,17 @@ Model calls are structured as follows:
 
 Tools are implemented using a **registry pattern**. Each tool file registers one or more tools by calling `registerTool(name, definition)` from `server/src/tools/registry.js`. The registry stores tools in an in-memory `Map`.
 
-At startup, `server/src/tools/index.js` imports all tool files, which triggers registration as a side effect. The orchestrator then calls `getToolSchemas(context)` to retrieve all 21 registered tools formatted for the Vercel AI SDK.
+At startup, `server/src/tools/index.js` imports all tool files, which triggers registration as a side effect. The orchestrator then calls `getToolSchemas(context)` to retrieve all 32 registered tools formatted for the Vercel AI SDK.
 
-The 21 tools are spread across 5 files:
+The 32 tools are spread across 8 files:
 - `filesystem.js` — read, write, append, delete files
 - `shell.js` — execute shell commands
 - `git.js` — git status, add, commit, diff, log
 - `dependencies.js` — npm install, uninstall, list
+- `package-manager.js` — run Python, Rust, Go, and Ruby commands
 - `directory.js` — create directory, list contents, move, copy, delete directory
+- `web.js` — web search and URL fetching
+- `browser.js` — PinchTab-powered browser navigation and interaction
 
 ---
 
@@ -416,6 +419,64 @@ Arrow key navigation in the history select menu was broken because conversation 
 
 ---
 
+### Session 10 — Multi-Language Runtime Support
+
+**What was built:** Four new language runtime tools were added in `server/src/tools/package-manager.js` and the registered tool count increased from 23 to 27.
+
+**Approach:** Added `run_python`, `run_cargo`, `run_go`, and `run_ruby` to execute language-native workflows directly from the agent. Extended the context reader to detect Python, Rust, Go, and Ruby projects from common project files so the agent can pick the correct runtime tool automatically.
+
+Detection sources:
+- Python: `requirements.txt`, `pyproject.toml`, `setup.py`, `Pipfile`, `poetry.lock`
+- Rust: `Cargo.toml`
+- Go: `go.mod`
+- Ruby: `Gemfile`
+
+**Problems:** npm-only execution paths limited agent workflows in non-Node repositories.
+
+**Resolution:** Orbit now supports multi-language execution workflows with language-aware tool selection in Agentic mode.
+
+---
+
+### Session 10.5 — PinchTab Browser Integration
+
+**What was built:** Five new browser automation tools were added in `server/src/tools/browser.js` and the registered tool count increased from 27 to 32.
+
+**Approach:** Integrated PinchTab as a Chrome automation backend over HTTP and added:
+- `browser_navigate`
+- `browser_snapshot`
+- `browser_click`
+- `browser_fill`
+- `browser_extract_text`
+
+Added environment variable support for:
+- `PINCHTAB_URL` (default `http://localhost:9867`)
+- `PINCHTAB_TOKEN` (Bearer auth token)
+
+**Problems:** `fetch_url` could not handle JavaScript-rendered or interactive browser workflows.
+
+**Resolution:** Orbit now supports token-efficient browser automation for dynamic pages through PinchTab, with explicit error handling when PinchTab is not running.
+
+---
+
+### Bug Fixes Applied During Sessions 10 and 10.5
+
+1. **Vercel AI SDK v5 compatibility (`gemini-provider.js`)**
+   - Migrated from the v4-style `result.textStream + result.steps` pattern to `result.fullStream`.
+   - `fullStream` chunk handling now covers: `text-delta`, `tool-call`, `tool-result`, `step-finish`.
+   - Fixed tool results becoming `undefined` after execution.
+
+2. **Zod v4 args destructuring fix (`web.js`, `browser.js`, `package-manager.js`)**
+   - Replaced `execute({ ... })` parameter destructuring with `execute(args)` plus field extraction inside the function.
+   - This avoids dropped fields under Zod v4 + AI SDK v5 schema parsing behavior.
+
+3. **Tool call/result rendering fix (`chat-with-ai-tool.js`)**
+   - Updated tool call rendering from `tc.args` to `tc.input ?? tc.args`.
+   - Updated tool result rendering from `tr.result` to `tr.output ?? tr.result ?? tr`.
+   - Added spinner stop handling when no text chunks arrive after a tool call.
+   - Added tool result synthesis when the model returns no text.
+
+---
+
 ### Sessions A–D — Agent Loop Hardening
 
 **What was built:** A hardened agent loop with typed exit reasons, bounded retries, context compression, and orphaned tool result handling.
@@ -476,9 +537,9 @@ Arrow key navigation in the history select menu was broken because conversation 
 
 ### 2. Tool Results Returning Undefined
 
-**Root cause:** In some cases, tool `execute` functions complete successfully but the return value is not propagated back through the registry to the orchestrator. The likely cause is a missing `return` statement in the registry's `execute` wrapper, or an async/await chain that loses the value.
+**Root cause:** The provider stream handling used a v4-style pattern (`textStream` + `steps`) that did not reliably propagate tool result chunks in AI SDK v5 flows. Additional schema argument destructuring issues under Zod v4 caused fields to be dropped in some tools.
 
-**Status:** Under investigation. Needs direct inspection of the registry return chain from `execute` call to orchestrator receive.
+**Status:** Resolved in Sessions 10 and 10.5 by migrating to `fullStream` chunk handling and applying `execute(args)` patterns in affected tools.
 
 ---
 
@@ -540,7 +601,6 @@ Arrow key navigation in the history select menu was broken because conversation 
 
 ## Current Known Issues
 
-- **Tool execute functions returning undefined** — Despite the path fix in v0.12.0, some tool return values are still lost in the registry → orchestrator chain. Needs direct inspection of the registry `execute` wrapper and all async return paths.
 - **One dotenv verbose line remaining on startup** — A single `[dotenv]` status line still appears on the first CLI invocation despite `quiet: true`. Source not yet identified.
 - **Task state persistence unvalidated** — `AgentTask` records are defined in the schema and the write logic exists, but the Gemini rate limit crashes the process before the records are written on any task long enough to exercise the persistence path. Cannot validate until rate limiting is resolved.
 
@@ -548,8 +608,6 @@ Arrow key navigation in the history select menu was broken because conversation 
 
 ## Planned Future Sessions
 
-- **Session 9 — Web Search Tool:** Integrate Tavily or a similar search API as a registered tool. Add auto-search capability in chat mode when the user asks about recent events or current information.
-- **Session 10 — Multi-Language Runtime Support:** Extend dependency tools beyond npm. Support Python/pip, Rust/cargo, and Go/modules. Framework detection in the context reader extended accordingly.
 - **Session 11 — Model Abstraction Layer:** Create a provider abstraction so the model can be switched between Gemini, OpenAI, and Groq without touching the orchestrator. Include exponential backoff, automatic retry on rate limit errors, and provider fallback.
 - **Session 12 — Test Suite:** Unit tests for the tool registry, integration tests for the orchestrator tool call loop, and end-to-end tests for the CLI modes.
 - **Final — Production Hardening:** Environment validation on startup, graceful error handling throughout, structured logging, and public release preparation.
