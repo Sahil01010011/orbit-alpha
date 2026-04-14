@@ -6,12 +6,12 @@ const PINCHTAB_BASE = process.env.PINCHTAB_URL || 'http://localhost:9867';
 async function pinchtabRequest(path, method = 'GET', body = null) {
   const options = {
     method,
-    headers: { 
-  'Content-Type': 'application/json',
-  ...(process.env.PINCHTAB_TOKEN && { 
-    'Authorization': `Bearer ${process.env.PINCHTAB_TOKEN}` 
-  }),
-},
+    headers: {
+      'Content-Type': 'application/json',
+      ...(process.env.PINCHTAB_TOKEN && {
+        'Authorization': `Bearer ${process.env.PINCHTAB_TOKEN}`
+      }),
+    },
     signal: AbortSignal.timeout(15000),
   };
   if (body) options.body = JSON.stringify(body);
@@ -26,7 +26,12 @@ async function pinchtabRequest(path, method = 'GET', body = null) {
 async function isAvailable() {
   try {
     await fetch(`${PINCHTAB_BASE}/health`, {
-      signal: AbortSignal.timeout(2000)
+      signal: AbortSignal.timeout(2000),
+      headers: {
+        ...(process.env.PINCHTAB_TOKEN && {
+          'Authorization': `Bearer ${process.env.PINCHTAB_TOKEN}`
+        }),
+      },
     });
     return true;
   } catch {
@@ -41,12 +46,9 @@ registerTool("browser_navigate", {
     "locally (npm install -g pinchtab && pinchtab).",
   parameters: z.object({
     url: z.string().describe("URL to navigate to"),
-    instance_id: z.string().optional()
-      .describe("PinchTab instance ID"),
   }),
   execute: async (args, context) => {
     const url = args?.url;
-    const instance_id = args?.instance_id ?? 'default';
     if (!url) return { success: false, error: 'url is required' };
     if (!(await isAvailable())) {
       return {
@@ -55,19 +57,11 @@ registerTool("browser_navigate", {
       };
     }
     try {
-      await pinchtabRequest(
-        `/instances/${instance_id}/navigate`,
-        'POST',
-        { url }
-      );
-      const text = await pinchtabRequest(
-        `/instances/${instance_id}/text`
-      );
+      await pinchtabRequest('/navigate', 'POST', { url });
+      const result = await pinchtabRequest('/text');
       return {
         success: true,
-        result: typeof text === 'string'
-          ? text.slice(0, 4000)
-          : JSON.stringify(text).slice(0, 4000),
+        result: result?.text?.slice(0, 4000) || JSON.stringify(result).slice(0, 4000),
         url
       };
     } catch (err) {
@@ -80,18 +74,13 @@ registerTool("browser_snapshot", {
   description: "Get interactive elements on the current browser " +
     "page as a structured snapshot. Returns clickable elements " +
     "with their reference IDs for use with browser_click.",
-  parameters: z.object({
-    instance_id: z.string().optional(),
-  }),
+  parameters: z.object({}),
   execute: async (args, context) => {
-    const instance_id = args?.instance_id ?? 'default';
     if (!(await isAvailable())) {
       return { success: false, error: 'PinchTab is not running' };
     }
     try {
-      const snap = await pinchtabRequest(
-        `/instances/${instance_id}/snapshot?filter=interactive`
-      );
+      const snap = await pinchtabRequest('/snapshot?filter=interactive');
       return { success: true, result: snap };
     } catch (err) {
       return { success: false, error: err.message };
@@ -103,22 +92,16 @@ registerTool("browser_click", {
   description: "Click an element on the current browser page " +
     "by its reference ID. Get reference IDs from browser_snapshot.",
   parameters: z.object({
-    ref: z.string().describe("Element reference ID from snapshot"),
-    instance_id: z.string().optional(),
+    ref: z.string().describe("Element reference ID from snapshot e.g. e5"),
   }),
   execute: async (args, context) => {
     const ref = args?.ref;
-    const instance_id = args?.instance_id ?? 'default';
     if (!ref) return { success: false, error: 'ref is required' };
     if (!(await isAvailable())) {
       return { success: false, error: 'PinchTab is not running' };
     }
     try {
-      await pinchtabRequest(
-        `/instances/${instance_id}/action`,
-        'POST',
-        { kind: 'click', ref }
-      );
+      await pinchtabRequest('/action', 'POST', { kind: 'click', ref });
       return { success: true, result: `Clicked element ${ref}` };
     } catch (err) {
       return { success: false, error: err.message };
@@ -131,12 +114,10 @@ registerTool("browser_fill", {
   parameters: z.object({
     ref: z.string().describe("Element reference ID from snapshot"),
     value: z.string().describe("Text to fill into the input"),
-    instance_id: z.string().optional(),
   }),
   execute: async (args, context) => {
     const ref = args?.ref;
     const value = args?.value;
-    const instance_id = args?.instance_id ?? 'default';
     if (!ref || !value) {
       return { success: false, error: 'ref and value are required' };
     }
@@ -144,12 +125,8 @@ registerTool("browser_fill", {
       return { success: false, error: 'PinchTab is not running' };
     }
     try {
-      await pinchtabRequest(
-        `/instances/${instance_id}/action`,
-        'POST',
-        { kind: 'fill', ref, value }
-      );
-      return { success: true, result: `Filled element ${ref}` };
+      await pinchtabRequest('/action', 'POST', { kind: 'fill', ref, value });
+      return { success: true, result: `Filled element ${ref} with value` };
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -158,24 +135,18 @@ registerTool("browser_fill", {
 
 registerTool("browser_extract_text", {
   description: "Extract plain text from the current browser page. " +
-    "Token-efficient: ~800 tokens per page vs 5000+ for raw HTML.",
-  parameters: z.object({
-    instance_id: z.string().optional(),
-  }),
+    "Token-efficient: ~800 tokens per page vs 5000+ for raw HTML. " +
+    "Call browser_navigate first to load a page.",
+  parameters: z.object({}),
   execute: async (args, context) => {
-    const instance_id = args?.instance_id ?? 'default';
     if (!(await isAvailable())) {
       return { success: false, error: 'PinchTab is not running' };
     }
     try {
-      const text = await pinchtabRequest(
-        `/instances/${instance_id}/text`
-      );
+      const result = await pinchtabRequest('/text');
       return {
         success: true,
-        result: typeof text === 'string'
-          ? text.slice(0, 4000)
-          : JSON.stringify(text).slice(0, 4000)
+        result: result?.text?.slice(0, 4000) || JSON.stringify(result).slice(0, 4000)
       };
     } catch (err) {
       return { success: false, error: err.message };
