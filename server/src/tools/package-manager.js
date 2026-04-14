@@ -37,7 +37,8 @@ registerTool("run_cargo", {
   description: "Execute a Cargo command for Rust projects.",
   parameters: z.object({
     command: z.string().describe(
-      "Cargo command e.g. 'cargo build' or 'cargo test' or " + "'cargo add serde'"
+      "Cargo command e.g. 'cargo build' or 'cargo test' or " +
+        "'cargo add serde'"
     ),
     cwd: z.string().optional(),
   }),
@@ -92,7 +93,8 @@ registerTool("run_ruby", {
   description: "Execute a Ruby or Gem command for Ruby projects.",
   parameters: z.object({
     command: z.string().describe(
-      "Ruby command e.g. 'ruby main.rb' or 'gem install rails' " + "or 'bundle install'"
+      "Ruby command e.g. 'ruby main.rb' or 'gem install rails' " +
+        "or 'bundle install'"
     ),
     cwd: z.string().optional(),
   }),
