@@ -15,5 +15,6 @@ import "./dependencies.js";
 import "./package-manager.js";
 import "./directory.js";
 import "./web.js";
+import "./browser.js";
 
 export { registerTool, getTool, getAllTools, getToolSchemas } from "./registry.js";
