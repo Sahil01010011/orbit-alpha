@@ -448,8 +448,9 @@ sudo npm install -g .
 - [x] Sessions A–D — Agent Loop Hardening
 - [x] Phase 1 — Provider Abstraction
 - [x] Phase 2 — Multi-Model Support
-- [ ] Session 9 — Web Search Tool
-- [ ] Session 10 — Multi-Language Runtime Support
+- [x] Session 9 — Web Search Tool
+- [x] Session 10 — Multi-Language Runtime Support
+- [ ] Session 11 — TUI Design
 - [ ] Session 12 — Test Suite
 - [ ] Final — Test suite
 
