@@ -73,6 +73,7 @@ async function startChatWithInk(conversation, user) {
   let isThinking = false;
   let streamingContent = "";
   let inkInstance = null;
+  const handleExit = () => inkInstance?.unmount();
 
   const rerender = () => {
     if (inkInstance) {
@@ -86,7 +87,7 @@ async function startChatWithInk(conversation, user) {
           isThinking,
           streamingContent,
           onSubmit: handleUserInput,
-          onExit: () => inkInstance?.unmount(),
+          onExit: handleExit,
         })
       );
     }
@@ -98,7 +99,7 @@ async function startChatWithInk(conversation, user) {
     }
 
     if (userText.toLowerCase() === "exit") {
-      inkInstance?.unmount();
+      handleExit();
       return;
     }
 
@@ -151,7 +152,7 @@ async function startChatWithInk(conversation, user) {
       isThinking: false,
       streamingContent: "",
       onSubmit: handleUserInput,
-      onExit: () => {},
+      onExit: handleExit,
     })
   );
 
