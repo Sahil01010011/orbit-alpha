@@ -10,24 +10,22 @@ import dotenv from "dotenv";
 dotenv.config({ path: resolve(currentDirPath, "../../../.env"), quiet: true });
 
 import chalk from "chalk";
+import { render } from "ink";
+import React from "react";
 import { Command } from "commander";
 import { login, logout, whoami } from "./commands/auth/login.js";
 import { createWakeUpCommand } from "./commands/ai/wakeUp.js";
 import { history } from "./commands/history/history.js";
+import { Banner } from "./ui/Banner.js";
 
 process.removeAllListeners("warning");
 
 const INVOCATION_DIR = process.cwd();
 
 async function main() {
-    console.log(chalk.hex('#22d3ee')('  ██████╗ ') + chalk.hex('#38bdf8')('██████╗ ') + chalk.hex('#818cf8')('██████╗ ') + chalk.hex('#a78bfa')('██╗████████╗'));
-    console.log(chalk.hex('#22d3ee')(' ██╔═══██╗') + chalk.hex('#38bdf8')('██╔══██╗') + chalk.hex('#818cf8')('██╔══██╗') + chalk.hex('#a78bfa')('██║╚══██╔══╝'));
-    console.log(chalk.hex('#22d3ee')(' ██║   ██║') + chalk.hex('#38bdf8')('██████╔╝') + chalk.hex('#818cf8')('██████╔╝') + chalk.hex('#a78bfa')('██║   ██║  '));
-    console.log(chalk.hex('#22d3ee')(' ██║   ██║') + chalk.hex('#38bdf8')('██╔══██╗') + chalk.hex('#818cf8')('██╔══██╗') + chalk.hex('#a78bfa')('██║   ██║  '));
-    console.log(chalk.hex('#22d3ee')(' ╚██████╔╝') + chalk.hex('#38bdf8')('██║  ██║') + chalk.hex('#818cf8')('██████╔╝') + chalk.hex('#a78bfa')('██║   ██║  '));
-    console.log(chalk.hex('#22d3ee')('  ╚═════╝ ') + chalk.hex('#38bdf8')('╚═╝  ╚═╝') + chalk.hex('#818cf8')('╚═════╝ ') + chalk.hex('#a78bfa')('╚═╝   ╚═╝  '));
-    console.log(chalk.hex('#c084fc')(' orbit α · autonomous cli developer agent'));
-    console.log('');
+    const { unmount } = render(React.createElement(Banner));
+    await new Promise(resolve => setTimeout(resolve, 50));
+    unmount();
 
     const program = new Command("orbit");
 
