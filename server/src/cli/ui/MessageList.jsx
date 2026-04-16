@@ -6,16 +6,24 @@ function renderContent(content) {
   if (!content) return null;
 
   const renderInline = (text, keyPrefix) => {
-    const inlineParts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
+    const inlineParts = text.split(/(\*\*[^*\n]+?\*\*|\*[^*\n]+?\*)/g);
     return inlineParts.map((inlinePart, j) => {
-      if (inlinePart.startsWith("**") && inlinePart.endsWith("**")) {
+      if (
+        inlinePart.startsWith("**") &&
+        inlinePart.endsWith("**") &&
+        inlinePart.length > 4
+      ) {
         return (
           <Text key={`${keyPrefix}-b-${j}`} color="#f9fafb" bold>
             {inlinePart.slice(2, -2)}
           </Text>
         );
       }
-      if (inlinePart.startsWith("*") && inlinePart.endsWith("*")) {
+      if (
+        inlinePart.startsWith("*") &&
+        inlinePart.endsWith("*") &&
+        inlinePart.length > 2
+      ) {
         return (
           <Text key={`${keyPrefix}-i-${j}`} color="#f9fafb" italic>
             {inlinePart.slice(1, -1)}
@@ -34,7 +42,7 @@ function renderContent(content) {
   const parts = content.split(/(```[\s\S]*?```)/g);
   return parts.map((part, i) => {
     if (part.startsWith('```')) {
-      const code = part.replace(/^```\w*\n?/, '').replace(/```$/, '');
+      const code = part.replace(/^```\w*\n+/, '').replace(/```$/, '');
       return (
         <Box
           key={i}

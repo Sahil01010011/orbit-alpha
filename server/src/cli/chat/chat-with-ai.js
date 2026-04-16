@@ -109,7 +109,7 @@ async function startChatWithInk(conversation, user) {
 
     await saveMessage(conversation.id, "user", userText);
 
-    const messages = await chatService.getMessages(conversation.id);
+    const messageCountBeforeAI = (await chatService.getMessages(conversation.id)).length;
 
     let fullResponse = "";
     try {
@@ -137,7 +137,7 @@ async function startChatWithInk(conversation, user) {
     isThinking = false;
     streamingContent = "";
     await saveMessage(conversation.id, "assistant", fullResponse);
-    await updateConversationTitle(conversation.id, userText, messages.length);
+    await updateConversationTitle(conversation.id, userText, messageCountBeforeAI);
     rerender();
   };
 
