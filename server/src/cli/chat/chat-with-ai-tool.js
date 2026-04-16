@@ -249,9 +249,9 @@ async function getAIResponse(conversationId) {
       },
       spinner,
     );
-    console.log('DEBUG steps:', result.steps?.length);
-    console.log('DEBUG toolResults:', result.toolResults?.length);
-    console.log('DEBUG content:', result.content?.slice(0, 100));
+    // console.log('DEBUG steps:', result.steps?.length);
+    // console.log('DEBUG toolResults:', result.toolResults?.length);
+    // console.log('DEBUG content:', result.content?.slice(0, 100));
 
     // Display tool calls if any
     if (toolCallsDetected.length > 0) {
@@ -333,9 +333,9 @@ async function getAIResponse(conversationId) {
 
     return result.content;
   } catch (error) {
-    console.log('DEBUG ERROR:', error.message);
-    console.log('DEBUG ERROR code:', error?.code);
-    console.log('DEBUG ERROR status:', error?.status);
+    // console.log('DEBUG ERROR:', error.message);
+    // console.log('DEBUG ERROR code:', error?.code);
+    // console.log('DEBUG ERROR status:', error?.status);
     spinner.error("Failed to get AI response");
 
     throw error;

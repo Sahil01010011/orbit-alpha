@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
+
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = dirname(currentFilePath);
