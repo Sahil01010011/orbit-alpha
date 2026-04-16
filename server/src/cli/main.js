@@ -16,7 +16,7 @@ import { Command } from "commander";
 import { login, logout, whoami } from "./commands/auth/login.js";
 import { createWakeUpCommand } from "./commands/ai/wakeUp.js";
 import { history } from "./commands/history/history.js";
-import { Banner } from "./ui/Banner.jsx";
+import { Banner } from "./ui/Banner.js";
 
 process.removeAllListeners("warning");
 
