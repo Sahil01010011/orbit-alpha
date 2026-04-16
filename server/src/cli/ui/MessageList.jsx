@@ -6,7 +6,7 @@ function renderContent(content) {
   if (!content) return null;
 
   const renderInline = (text, keyPrefix) => {
-    const inlineParts = text.split(/(\*\*[^*\n]+?\*\*|\*[^*\n]+?\*)/g);
+    const inlineParts = text.split(/(\*\*[^*]+?\*\*|\*[^*]+?\*)/g);
     return inlineParts.map((inlinePart, j) => {
       if (
         inlinePart.startsWith("**") &&
@@ -42,7 +42,7 @@ function renderContent(content) {
   const parts = content.split(/(```[\s\S]*?```)/g);
   return parts.map((part, i) => {
     if (part.startsWith('```')) {
-      const code = part.replace(/^```\w*\n+/, '').replace(/```$/, '');
+      const code = part.replace(/^```\w*\n*/, '').replace(/```$/, '');
       return (
         <Box
           key={i}
