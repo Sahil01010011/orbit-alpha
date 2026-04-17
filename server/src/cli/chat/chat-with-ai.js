@@ -165,8 +165,10 @@ async function getAIResponse(conversationId) {
     console.log(renderedMarkdown);
     console.log(chalk.gray("─".repeat(60)));
     console.log("\n");
+    // console.log('fullResponse:', fullResponse);
     
-    return result.content;
+    // return result.content;
+    return result.content || fullResponse || '';
   } catch (error) {
     spinner.error("Failed to get AI response");
     throw error;
