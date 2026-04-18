@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
 import { Box, Text, useApp } from 'ink';
-import { Banner } from './Banner.jsx';
-import { StatusBar } from './StatusBar.jsx';
-import { MessageList } from './MessageList.jsx';
-import { InputBar } from './InputBar.jsx';
+import { Banner } from './Banner.js';
+import { StatusBar } from './StatusBar.js';
+import { MessageList } from './MessageList.js';
+import { InputBar } from './InputBar.js';
 import { theme } from './theme.js';
 
 export function OrbitApp({ 
