@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Orbital CLI - A CLI based AI Tool",
   "bin": {
-    "orbit": "server/src/cli/main.js"
+    "orbit": "server/dist/main.js"
+  },
+  "scripts": {
+    "prepare": "cd server && npm run build"
   }
 }

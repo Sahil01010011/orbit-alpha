@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Box, Text, useApp, useInput } from 'ink';
 import { StatusBar } from './StatusBar.js';
 import { MessageList } from './MessageList.js';
@@ -25,27 +25,25 @@ export function ChatView({
     }
   });
 
-  return React.createElement(Box, { flexDirection: 'column' },
-    React.createElement(StatusBar, {
-      model: model,
-      mode: mode || 'chat',
-      sessionId: conversationId,
-    }),
-    React.createElement(Box, {
-      flexDirection: 'column',
-      marginY: 1,
-      paddingX: 1,
-    },
-      React.createElement(MessageList, {
-        messages: initialMessages,
-        isThinking: isThinking,
-        streamingContent: streamingContent,
-      })
-    ),
-    React.createElement(InputBar, {
-      onSubmit: onSubmit,
-      disabled: isThinking,
-      placeholder: 'Type a message... (Ctrl+C to exit)',
-    })
+  return (
+    <Box flexDirection="column">
+      <StatusBar
+        model={model}
+        mode={mode || 'chat'}
+        sessionId={conversationId}
+      />
+      <Box flexDirection="column" marginY={1} paddingX={1}>
+        <MessageList
+          messages={initialMessages}
+          isThinking={isThinking}
+          streamingContent={streamingContent}
+        />
+      </Box>
+      <InputBar
+        onSubmit={onSubmit}
+        disabled={isThinking}
+        placeholder="Type a message... (Ctrl+C to exit)"
+      />
+    </Box>
   );
 }

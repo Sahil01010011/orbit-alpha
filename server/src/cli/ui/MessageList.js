@@ -9,116 +9,112 @@ function renderContent(content) {
     if (part.startsWith('```')) {
       const code = part.replace(/^```\w*\n?/, '').replace(/```$/, '');
       return (
-        React.createElement(Box, {
-          key: i,
-          borderStyle: 'single',
-          borderColor: theme.dimGray,
-          paddingX: 1,
-          marginY: 1,
-        },
-          React.createElement(Text, { color: theme.cyan }, code)
-        )
+        <Box
+          key={i}
+          borderStyle="single"
+          borderColor={theme.dimGray}
+          paddingX={1}
+          marginY={1}
+        >
+          <Text color={theme.cyan}>{code}</Text>
+        </Box>
       );
     }
-    return React.createElement(Text, {
-      key: i,
-      color: theme.white,
-      wrap: 'wrap',
-    }, part);
+    return <Text key={i} color={theme.white} wrap="wrap">{part}</Text>;
   });
 }
 
 function ToolCallItem({ toolName, status, args }) {
-  const statusColor = status === 'done'
-    ? theme.green
-    : status === 'error'
-    ? theme.red
+  const statusColor = status === 'done' ? theme.green
+    : status === 'error' ? theme.red
     : theme.yellow;
-
   const statusChar = status === 'done' ? '✓'
     : status === 'error' ? '✗' : '…';
 
-  return React.createElement(Box, { gap: 1, marginLeft: 2 },
-    React.createElement(Text, { color: theme.gray }, '▸'),
-    React.createElement(Text, { color: theme.cyan }, toolName),
-    args && React.createElement(Text, { color: theme.dimGray },
-      JSON.stringify(args).slice(0, 60)
-    ),
-    React.createElement(Text, { color: statusColor }, statusChar)
+  return (
+    <Box gap={1} marginLeft={2}>
+      <Text color={theme.gray}>▸</Text>
+      <Text color={theme.cyan}>{toolName}</Text>
+      {args && (
+        <Text color={theme.dimGray}>
+          {JSON.stringify(args).slice(0, 60)}
+        </Text>
+      )}
+      <Text color={statusColor}>{statusChar}</Text>
+    </Box>
   );
 }
 
 function Message({ role, content, toolCalls, isStreaming }) {
   if (role === 'user') {
-    return React.createElement(Box, {
-      flexDirection: 'column',
-      marginBottom: 1,
-    },
-      React.createElement(Text, { color: theme.blue, bold: true }, 'You'),
-      React.createElement(Box, { marginLeft: 2 },
-        React.createElement(Text, { color: theme.white, wrap: 'wrap' }, content)
-      )
+    return (
+      <Box flexDirection="column" marginBottom={1}>
+        <Text color={theme.blue} bold>You</Text>
+        <Box marginLeft={2}>
+          <Text color={theme.white} wrap="wrap">{content}</Text>
+        </Box>
+      </Box>
     );
   }
 
-  return React.createElement(Box, {
-    flexDirection: 'column',
-    marginBottom: 1,
-  },
-    React.createElement(Box, { gap: 1 },
-      React.createElement(Text, { color: theme.purple, bold: true }, 'Orbit'),
-      isStreaming && React.createElement(Text, { color: theme.yellow }, '●')
-    ),
-    toolCalls && toolCalls.length > 0 && React.createElement(Box, {
-      flexDirection: 'column',
-      marginBottom: 1,
-    },
-      ...toolCalls.map((tc, i) =>
-        React.createElement(ToolCallItem, {
-          key: i,
-          toolName: tc.toolName,
-          status: tc.status,
-          args: tc.args,
-        })
-      )
-    ),
-    content && React.createElement(Box, { marginLeft: 2 },
-      ...renderContent(content)
-    )
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Box gap={1}>
+        <Text color={theme.purple} bold>Orbit</Text>
+        {isStreaming && <Text color={theme.yellow}>●</Text>}
+      </Box>
+      {toolCalls && toolCalls.length > 0 && (
+        <Box flexDirection="column" marginBottom={1}>
+          {toolCalls.map((tc, i) => (
+            <ToolCallItem
+              key={i}
+              toolName={tc.toolName}
+              status={tc.status}
+              args={tc.args}
+            />
+          ))}
+        </Box>
+      )}
+      {content && (
+        <Box marginLeft={2}>
+          {renderContent(content)}
+        </Box>
+      )}
+    </Box>
   );
 }
 
 export function MessageList({ messages, isThinking, streamingContent }) {
   if (!messages || messages.length === 0) {
-    return React.createElement(Box, { marginLeft: 2, marginTop: 1 },
-      React.createElement(Text, { color: theme.gray, dimColor: true },
-        'Start a conversation...'
-      )
+    return (
+      <Box marginLeft={2} marginTop={1}>
+        <Text color={theme.gray} dimColor>
+          Start a conversation...
+        </Text>
+      </Box>
     );
   }
 
   const allMessages = streamingContent
-    ? [
-        ...messages,
-        { role: 'assistant', content: streamingContent, isStreaming: true },
-      ]
+    ? [...messages, { role: 'assistant', content: streamingContent, isStreaming: true }]
     : messages;
 
-  return React.createElement(Box, { flexDirection: 'column' },
-    ...allMessages.map((msg, i) =>
-      React.createElement(Message, {
-        key: i,
-        role: msg.role,
-        content: msg.content,
-        toolCalls: msg.toolCalls,
-        isStreaming: msg.isStreaming,
-      })
-    ),
-    isThinking && !streamingContent && React.createElement(Box, {
-      marginLeft: 2,
-      marginTop: 1,
-    },
-      React.createElement(Text, { color: theme.yellow }, '● thinking...')
-    )
+  return (
+    <Box flexDirection="column">
+      {allMessages.map((msg, i) => (
+        <Message
+          key={i}
+          role={msg.role}
+          content={msg.content}
+          toolCalls={msg.toolCalls}
+          isStreaming={msg.isStreaming}
+        />
+      ))}
+      {isThinking && !streamingContent && (
+        <Box marginLeft={2} marginTop={1}>
+          <Text color={theme.yellow}>● thinking...</Text>
+        </Box>
+      )}
+    </Box>
   );
 }

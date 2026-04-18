@@ -12,10 +12,6 @@ await build({
   format: 'esm',
   outfile: resolve(__dirname, 'dist/main.js'),
   external: [
-    // Node built-ins
-    'fs', 'path', 'url', 'os', 'child_process', 'crypto',
-    'stream', 'util', 'events', 'http', 'https', 'net',
-    // All node_modules — bundle only src files
     '@prisma/client',
     'better-auth',
     '@ai-sdk/google',
@@ -35,15 +31,12 @@ await build({
     'react',
     'zod',
     'dotenv',
+    'express',
+    'cors',
+    'better-auth',
     'pg',
-    'pg-native',
-    'pg-pool',
-    'pgpass',
-    'pg-connection-string',
-    '@neondatabase/serverless',
-    '@prisma/client',
-    'prisma',
-    '.prisma',
+    'open',
+    'figlet',
   ],
   jsx: 'automatic',
   jsxImportSource: 'react',
@@ -53,4 +46,4 @@ await build({
   logLevel: 'info',
 });
 
-console.log('Build complete: dist/main.js');
+console.log('Build complete → dist/main.js');

@@ -22,24 +22,22 @@ export function OrbitApp({
     ]);
   };
 
-  return React.createElement(Box, { flexDirection: 'column' },
-    React.createElement(Banner),
-    React.createElement(StatusBar, {
-      model,
-      mode,
-      sessionId,
-      toolCount,
-    }),
-    React.createElement(Box, {
-      flexDirection: 'column',
-      flexGrow: 1,
-      marginY: 1,
-    },
-      React.createElement(MessageList, { messages })
-    ),
-    React.createElement(InputBar, {
-      onSubmit: handleSubmit,
-      placeholder: 'Type a message...',
-    })
+  return (
+    <Box flexDirection="column">
+      <Banner />
+      <StatusBar
+        model={model}
+        mode={mode}
+        sessionId={sessionId}
+        toolCount={toolCount}
+      />
+      <Box flexDirection="column" flexGrow={1} marginY={1}>
+        <MessageList messages={messages} />
+      </Box>
+      <InputBar
+        onSubmit={handleSubmit}
+        placeholder="Type a message..."
+      />
+    </Box>
   );
 }

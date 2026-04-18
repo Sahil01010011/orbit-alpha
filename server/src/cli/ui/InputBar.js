@@ -13,22 +13,22 @@ export function InputBar({ onSubmit, placeholder, disabled }) {
     }
   };
 
-  return React.createElement(Box, {
-    borderStyle: 'single',
-    borderColor: disabled ? theme.gray : theme.cyan,
-    paddingX: 1,
-    marginTop: 1,
-  },
-    React.createElement(Text, {
-      color: disabled ? theme.gray : theme.cyan,
-    }, '> '),
-    React.createElement(TextInput, {
-      value,
-      onChange: setValue,
-      onSubmit: handleSubmit,
-      placeholder: disabled ? 'Thinking...' : (placeholder || 'Type a message...'),
-    }),
-    React.createElement(Box, { flexGrow: 1 }),
-    React.createElement(Text, { color: theme.dimGray, dimColor: true }, '[Ctrl+C] quit')
+  return (
+    <Box
+      borderStyle="single"
+      borderColor={disabled ? theme.gray : theme.cyan}
+      paddingX={1}
+      marginTop={1}
+    >
+      <Text color={disabled ? theme.gray : theme.cyan}>{'> '}</Text>
+      <TextInput
+        value={value}
+        onChange={setValue}
+        onSubmit={handleSubmit}
+        placeholder={disabled ? 'Thinking...' : (placeholder || 'Type a message...')}
+      />
+      <Box flexGrow={1} />
+      <Text color={theme.dimGray} dimColor>{'[Ctrl+C] quit'}</Text>
+    </Box>
   );
 }
