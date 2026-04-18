@@ -1,49 +1,19 @@
-import chalk from "chalk";
-import boxen from "boxen";
-import { text, isCancel, cancel, intro, outro } from "@clack/prompts";
-import yoctoSpinner from "yocto-spinner";
-import { marked } from "marked";
-import { markedTerminal } from "marked-terminal";
-import { getProvider, sendMessageWithFallback } from "../ai/provider-factory.js";
-import { ChatService } from "../../service/chat.service.js";
-import { getStoredToken } from "../commands/auth/login.js";
-import prisma from "../../lib/db.js";
-import { ORBITAL_SYSTEM_PROMPT } from "../../config/agent.config.js";
+import React from 'react';
+import { render } from 'ink';
+import { ChatView } from '../ui/ChatView.js';
+import { getActiveProviderInfo, sendMessageWithFallback } from '../ai/provider-factory.js';
+import { ChatService } from '../../service/chat.service.js';
+import { getStoredToken } from '../commands/auth/login.js';
+import prisma from '../../lib/db.js';
+import { ORBITAL_SYSTEM_PROMPT } from '../../config/agent.config.js';
 
-// Configure marked to use terminal renderer
-marked.use(
-  markedTerminal({
-    // Styling options for terminal output
-    code: chalk.cyan,
-    blockquote: chalk.gray.italic,
-    heading: chalk.green.bold,
-    firstHeading: chalk.magenta.underline.bold,
-    hr: chalk.reset,
-    listitem: chalk.reset,
-    list: chalk.reset,
-    paragraph: chalk.reset,
-    strong: chalk.bold,
-    em: chalk.italic,
-    codespan: chalk.yellow.bgBlack,
-    del: chalk.dim.gray.strikethrough,
-    link: chalk.blue.underline,
-    href: chalk.blue.underline,
-  })
-);
-
-// Initialize services
-// const aiService = getProvider();
 const chatService = new ChatService();
 
 async function getUserFromToken() {
   const token = await getStoredToken();
-  
   if (!token?.access_token) {
     throw new Error("Not authenticated. Please run 'orbit login' first.");
   }
-
-  const spinner = yoctoSpinner({ text: "Authenticating..." }).start();
-
   const user = await prisma.user.findFirst({
     where: {
       sessions: {
@@ -51,222 +21,130 @@ async function getUserFromToken() {
       },
     },
   });
-
   if (!user) {
-    spinner.error("User not found");
-    throw new Error("User not found. Please login again.");
+    throw new Error('User not found. Please login again.');
   }
-
-  spinner.success(`Welcome back, ${user.name}!`);
   return user;
 }
 
-async function initConversation(userId, conversationId = null, mode = "chat") {
-  const spinner = yoctoSpinner({ text: "Loading conversation..." }).start();
-  
+async function initConversation(userId, conversationId = null, mode = 'chat') {
   const conversation = await chatService.getOrCreateConversation(
     userId,
     conversationId,
     mode
   );
-  
-  spinner.success("Conversation loaded");
-  
-  // Display conversation info in a box
-  const conversationInfo = boxen(
-    `${chalk.bold("Conversation")}: ${conversation.title}\n${chalk.gray("ID: " + conversation.id)}\n${chalk.gray("Mode: " + conversation.mode)}`,
-    {
-      padding: 1,
-      margin: { top: 1, bottom: 1 },
-      borderStyle: "round",
-      borderColor: "cyan",
-      title: "💬 Chat Session",
-      titleAlignment: "center",
-    }
-  );
-  
-  console.log(conversationInfo);
-  
-  // Display existing messages if any
-  if (conversation.messages?.length > 0) {
-    console.log(chalk.yellow("📜 Previous messages:\n"));
-    displayMessages(conversation.messages);
-  }
-  
   return conversation;
-}
-
-function displayMessages(messages) {
-  messages.forEach((msg) => {
-    if (msg.role === "user") {
-      const userBox = boxen(chalk.white(msg.content), {
-        padding: 1,
-        margin: { left: 2, bottom: 1 },
-        borderStyle: "round",
-        borderColor: "blue",
-        title: "👤 You",
-        titleAlignment: "left",
-      });
-      console.log(userBox);
-    } else {
-      // Render markdown for assistant messages
-      const renderedContent = marked.parse(msg.content);
-      const assistantBox = boxen(renderedContent.trim(), {
-        padding: 1,
-        margin: { left: 2, bottom: 1 },
-        borderStyle: "round",
-        borderColor: "green",
-        title: "🤖 Assistant",
-        titleAlignment: "left",
-      });
-      console.log(assistantBox);
-    }
-  });
 }
 
 async function saveMessage(conversationId, role, content) {
   return await chatService.addMessage(conversationId, role, content);
 }
 
-async function getAIResponse(conversationId) {
-  const spinner = yoctoSpinner({ 
-    text: "AI is thinking...", 
-    color: "cyan" 
-  }).start();
-
-  const dbMessages = await chatService.getMessages(conversationId);
-  const aiMessages = chatService.formatMessagesForAI(dbMessages);
-  
-  let fullResponse = "";
-  let isFirstChunk = true;
-  try {
-    const result = await sendMessageWithFallback(
-      aiMessages,
-      (chunk) => {
-      
-        // Stop spinner on first chunk and show header
-        if (isFirstChunk) {
-          spinner.stop();
-          console.log("\n");
-        const header = chalk.green.bold("🤖 Assistant:");
-        console.log(header);
-        console.log(chalk.gray("─".repeat(60)));
-        isFirstChunk = false;
-        }
-        fullResponse += chunk;
-      },
-      { system: ORBITAL_SYSTEM_PROMPT },
-      spinner
-    );
-    
-    // Now render the complete markdown response
-    console.log("\n");
-    const renderedMarkdown = marked.parse(fullResponse);
-    console.log(renderedMarkdown);
-    console.log(chalk.gray("─".repeat(60)));
-    console.log("\n");
-    // console.log('fullResponse:', fullResponse);
-    
-    // return result.content;
-    return result.content || fullResponse || '';
-  } catch (error) {
-    spinner.error("Failed to get AI response");
-    throw error;
-  }
-}
-
 async function updateConversationTitle(conversationId, userInput, messageCount) {
   if (messageCount === 1) {
-    const title = userInput.slice(0, 50) + (userInput.length > 50 ? "..." : "");
+    const title = userInput.slice(0, 50) + (userInput.length > 50 ? '...' : '');
     await chatService.updateTitle(conversationId, title);
   }
 }
 
-async function chatLoop(conversation) {
-  const helpBox = boxen(
-    `${chalk.gray('• Type your message and press Enter')}\n${chalk.gray('• Markdown formatting is supported in responses')}\n${chalk.gray('• Type "exit" to end conversation')}\n${chalk.gray('• Press Ctrl+C to quit anytime')}`,
-    {
-      padding: 1,
-      margin: { bottom: 1 },
-      borderStyle: "round",
-      borderColor: "gray",
-      dimBorder: true,
-    }
-  );
-  
-  console.log(helpBox);
+async function startChatWithInk(conversation) {
+  const { activeName } = getActiveProviderInfo();
 
-  while (true) {
-    const userInput = await text({
-      message: chalk.blue("💬 Your message"),
-      placeholder: "Type your message...",
-      validate(value) {
-        if (!value || value.trim().length === 0) {
-          return "Message cannot be empty";
-        }
-      },
-    });
+  const dbMessages = await chatService.getMessages(conversation.id);
+  let currentMessages = dbMessages.map(m => ({
+    role: m.role,
+    content: m.content,
+  }));
 
-    // Handle cancellation (Ctrl+C)
-    if (isCancel(userInput)) {
-      const exitBox = boxen(chalk.yellow("Chat session ended. Goodbye! 👋"), {
-        padding: 1,
-        margin: 1,
-        borderStyle: "round",
-        borderColor: "yellow",
-      });
-      console.log(exitBox);
-      process.exit(0);
-    }
+  let isThinking = false;
+  let streamingContent = '';
+  let inkInstance = null;
 
-    // Handle exit command
-    if (userInput.toLowerCase() === "exit") {
-      break;
-    }
-
-  
-  
-
-    // Save user message
-    await saveMessage(conversation.id, "user", userInput);
-
-    // Get messages count before AI response
-    const messages = await chatService.getMessages(conversation.id);
-    
-    // Get AI response with streaming and markdown rendering
-    const aiResponse = await getAIResponse(conversation.id);
-
-    // Save AI response
-    await saveMessage(conversation.id, "assistant", aiResponse);
-
-    // Update title if first exchange
-    await updateConversationTitle(conversation.id, userInput, messages.length);
+  function getProps(onSubmitFn) {
+    return {
+      conversationTitle: conversation.title,
+      conversationId: conversation.id,
+      model: activeName,
+      mode: 'chat',
+      initialMessages: currentMessages,
+      isThinking,
+      streamingContent,
+      onSubmit: onSubmitFn,
+      onExit: () => inkInstance && inkInstance.unmount(),
+    };
   }
-}
 
-// Main entry point
-export async function startChat(mode = "chat", conversationId = null) {
-  try {
-    // Display intro banner
-    intro(
-      boxen(chalk.bold.cyan("🚀 Orbit AI Chat"), {
-        padding: 1,
-        borderStyle: "double",
-        borderColor: "cyan",
-      })
+  async function handleUserInput(userText) {
+    if (userText.toLowerCase() === 'exit') {
+      inkInstance && inkInstance.unmount();
+      return;
+    }
+
+    currentMessages = [
+      ...currentMessages,
+      { role: 'user', content: userText },
+    ];
+    isThinking = true;
+    streamingContent = '';
+    inkInstance && inkInstance.rerender(
+      React.createElement(ChatView, getProps(handleUserInput))
     );
 
+    await saveMessage(conversation.id, 'user', userText);
+
+    const messageCountBefore = currentMessages.length - 1;
+    let fullResponse = '';
+
+    try {
+      const result = await sendMessageWithFallback(
+        currentMessages.map(m => ({ role: m.role, content: m.content })),
+        (chunk) => {
+          streamingContent += chunk;
+          fullResponse += chunk;
+          inkInstance && inkInstance.rerender(
+            React.createElement(ChatView, getProps(handleUserInput))
+          );
+        },
+        { system: ORBITAL_SYSTEM_PROMPT }
+      );
+      fullResponse = result.content || fullResponse;
+    } catch (err) {
+      fullResponse = `Error: ${err.message}`;
+    }
+
+    currentMessages = [
+      ...currentMessages,
+      { role: 'assistant', content: fullResponse },
+    ];
+    isThinking = false;
+    streamingContent = '';
+
+    await saveMessage(conversation.id, 'assistant', fullResponse);
+    await updateConversationTitle(
+      conversation.id,
+      currentMessages.find(m => m.role === 'user')?.content || '',
+      messageCountBefore
+    );
+
+    inkInstance && inkInstance.rerender(
+      React.createElement(ChatView, getProps(handleUserInput))
+    );
+  }
+
+  inkInstance = render(
+    React.createElement(ChatView, getProps(handleUserInput))
+  );
+
+  await inkInstance.waitUntilExit();
+}
+
+export async function startChat(mode = 'chat', conversationId = null) {
+  try {
     const user = await getUserFromToken();
     const conversation = await initConversation(user.id, conversationId, mode);
-    await chatLoop(conversation);
+    await startChatWithInk(conversation);
   } catch (error) {
-    const errorBox = boxen(chalk.red(`❌ Error: ${error.message}`), {
-      padding: 1,
-      margin: 1,
-      borderStyle: "round",
-      borderColor: "red",
-    });
-    console.log(errorBox);
+    console.error(`Error: ${error.message}`);
     process.exit(1);
   }
 }
