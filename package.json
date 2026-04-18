@@ -3,6 +3,6 @@
   "version": "1.0.0",
   "description": "Orbital CLI - A CLI based AI Tool",
   "bin": {
-    "orbit": "server/dist/main.js"
+    "orbit": "server/src/cli/main.js"
   }
 }

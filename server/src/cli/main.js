@@ -1,13 +1,29 @@
 #!/usr/bin/env node
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
-
+import { existsSync } from "fs";
 
 const currentFilePath = fileURLToPath(import.meta.url);
 const currentDirPath = dirname(currentFilePath);
 
 import dotenv from "dotenv";
-dotenv.config({ path: resolve(currentDirPath, "../../../.env"), quiet: true });
+import { homedir } from "os";
+
+const envCandidates = [
+  resolve(process.cwd(), ".env"),
+  resolve(process.cwd(), "server", ".env"),
+  resolve(currentDirPath, "../../.env"),
+  resolve(currentDirPath, "../../../.env"),
+  resolve(currentDirPath, "../../../../.env"),
+  resolve(homedir(), ".orbit", ".env"),
+];
+
+for (const envPath of envCandidates) {
+  if (existsSync(envPath)) {
+    dotenv.config({ path: envPath, quiet: true });
+    break;
+  }
+}
 
 import chalk from "chalk";
 import { render } from "ink";
@@ -23,29 +39,30 @@ process.removeAllListeners("warning");
 const INVOCATION_DIR = process.cwd();
 
 async function main() {
-    const { unmount } = render(React.createElement(Banner));
-    await new Promise(resolve => setTimeout(resolve, 50));
-    unmount();
+  const { unmount } = render(React.createElement(Banner));
+  await new Promise((r) => setTimeout(r, 50));
+  unmount();
 
-    const program = new Command("orbit");
+  const program = new Command("orbit");
 
-    program.version("0.0.1")
-        .description("Orbital CLI - A Cli Based AI Tool")
-        .addCommand(login)
-        .addCommand(logout)
-        .addCommand(whoami)
-        .addCommand(createWakeUpCommand(INVOCATION_DIR))
-        .addCommand(history);
+  program
+    .version("0.0.1")
+    .description("Orbital CLI - A Cli Based AI Tool")
+    .addCommand(login)
+    .addCommand(logout)
+    .addCommand(whoami)
+    .addCommand(createWakeUpCommand(INVOCATION_DIR))
+    .addCommand(history);
 
-    if (process.argv.slice(2).length === 0) {
-        program.outputHelp();
-        process.exit(0);
-    }
+  if (process.argv.slice(2).length === 0) {
+    program.outputHelp();
+    process.exit(0);
+  }
 
-    program.parse();
+  program.parse();
 }
 
 main().catch((err) => {
-    console.log(chalk.red("Error running Orbital CLI"), err);
-    process.exit(1);
+  console.log(chalk.red("Error running Orbital CLI"), err);
+  process.exit(1);
 });
