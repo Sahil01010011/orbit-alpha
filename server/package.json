@@ -7,8 +7,10 @@
     "orbit": "./src/cli/main.js"
   },
   "scripts": {
-    "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "build": "node build.js",
+    "postbuild": "node -e \"const fs=require('fs');const f='dist/main.js';const c=fs.readFileSync(f,'utf8');if(!c.startsWith('#!/usr/bin/env node')){fs.writeFileSync(f,'#!/usr/bin/env node\\n'+c);}console.log('Shebang added');\"",
+    "dev": "node --experimental-specifier-resolution=node src/server.js",
+    "start": "node dist/main.js"
   },
   "keywords": [],
   "author": "",
@@ -44,6 +46,7 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "esbuild": "^0.20.0",
     "prisma": "^6.19.3"
   }
 }
