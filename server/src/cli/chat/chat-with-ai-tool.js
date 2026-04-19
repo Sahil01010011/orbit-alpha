@@ -1,18 +1,9 @@
 import chalk from "chalk";
-import boxen from "boxen";
-import {
-  text,
-  isCancel,
-  cancel,
-  intro,
-  outro,
-  multiselect,
-} from "@clack/prompts";
+import { text, isCancel, multiselect } from "@clack/prompts";
 import yoctoSpinner from "yocto-spinner";
 import { marked } from "marked";
 import { markedTerminal } from "marked-terminal";
 import {
-  getProvider,
   getActiveProviderInfo,
   sendMessageWithFallback,
 } from "../ai/provider-factory.js";
@@ -31,24 +22,23 @@ import { ORBITAL_SYSTEM_PROMPT } from "../../config/agent.config.js";
 // Configure marked for terminal
 marked.use(
   markedTerminal({
-    code: chalk.cyan,
-    blockquote: chalk.gray.italic,
-    heading: chalk.green.bold,
-    firstHeading: chalk.magenta.underline.bold,
-    hr: chalk.reset,
-    listitem: chalk.reset,
-    list: chalk.reset,
-    paragraph: chalk.reset,
+    code: chalk.hex("#22d3ee"),
+    blockquote: chalk.hex("#6b7280").italic,
+    heading: chalk.hex("#a78bfa").bold,
+    firstHeading: chalk.hex("#c084fc").bold,
+    hr: chalk.hex("#374151"),
+    listitem: chalk.hex("#f9fafb"),
+    list: chalk.hex("#f9fafb"),
+    paragraph: chalk.hex("#e2e8f0"),
     strong: chalk.bold,
     em: chalk.italic,
-    codespan: chalk.yellow.bgBlack,
-    del: chalk.dim.gray.strikethrough,
-    link: chalk.blue.underline,
-    href: chalk.blue.underline,
+    codespan: chalk.hex("#22d3ee"),
+    del: chalk.dim,
+    link: chalk.hex("#38bdf8").underline,
+    href: chalk.hex("#38bdf8").underline,
   }),
 );
 
-// const aiService = getProvider();
 const chatService = new ChatService();
 
 async function getUserFromToken() {
@@ -57,8 +47,6 @@ async function getUserFromToken() {
   if (!token?.access_token) {
     throw new Error("Not authenticated. Please run 'orbit login' first.");
   }
-
-  const spinner = yoctoSpinner({ text: "Authenticating..." }).start();
 
   const user = await prisma.user.findFirst({
     where: {
@@ -69,16 +57,13 @@ async function getUserFromToken() {
   });
 
   if (!user) {
-    spinner.error("User not found");
     throw new Error("User not found. Please login again.");
   }
 
-  spinner.success(`Welcome back, ${user.name}!`);
   return user;
 }
 
 async function selectTools() {
-  // console.log("[DEBUG] availableTools at selectTools:", availableTools);
   const toolOptions = availableTools.map((tool) => ({
     value: tool.id,
     label: tool.name,
@@ -86,93 +71,68 @@ async function selectTools() {
   }));
 
   const selectedTools = await multiselect({
-    message: chalk.cyan(
-      "Select tools to enable (Space to select, Enter to confirm):",
-    ),
+    message: chalk.hex("#22d3ee")("Select tools to enable:"),
     options: toolOptions,
     required: false,
   });
 
   if (isCancel(selectedTools)) {
-    cancel(chalk.yellow("Tool selection cancelled"));
+    console.log(chalk.hex("#6b7280")("tool selection cancelled"));
     process.exit(0);
   }
 
-  // Enable selected tools
   enableTools(selectedTools);
 
   if (selectedTools.length === 0) {
     console.log(
-      chalk.yellow("\n⚠️  No tools selected. AI will work without tools.\n"),
+      chalk.hex("#facc15")("no tools selected — running without tools"),
     );
+    console.log("");
   } else {
-    const toolsBox = boxen(
-      chalk.green(
-        `✅ Enabled tools:\n${selectedTools
-          .map((id) => {
-            const tool = availableTools.find((t) => t.id === id);
-            return `  • ${tool.name}`;
-          })
-          .join("\n")}`,
-      ),
-      {
-        padding: 1,
-        margin: { top: 1, bottom: 1 },
-        borderStyle: "round",
-        borderColor: "green",
-        title: "🛠️  Active Tools",
-        titleAlignment: "center",
-      },
-    );
-    console.log(toolsBox);
+    console.log("");
+    console.log(chalk.hex("#4ade80")("active tools"));
+    selectedTools.forEach((id) => {
+      const tool = availableTools.find((t) => t.id === id);
+      console.log(
+        chalk.hex("#374151")("  ▸ ") + chalk.hex("#22d3ee")(tool.name),
+      );
+    });
+    console.log("");
   }
 
   return selectedTools.length > 0;
 }
 
 async function initConversation(userId, conversationId = null, mode = "tool") {
-  const spinner = yoctoSpinner({ text: "Loading conversation..." }).start();
-
   const conversation = await chatService.getOrCreateConversation(
     userId,
     conversationId,
     mode,
   );
 
-  spinner.success("Conversation loaded");
-
-  // Get enabled tool names for display
-  const enabledToolNames = getEnabledToolNames();
-  const toolsDisplay =
-    enabledToolNames.length > 0
-      ? `\n${chalk.gray("Active Tools:")} ${enabledToolNames.join(", ")}`
-      : `\n${chalk.gray("No tools enabled")}`;
   const { activeName, requestedName, isFallback } = getActiveProviderInfo();
-  const modelLine = isFallback
-    ? chalk.gray("Model: ") +
-      chalk.yellow(
-        activeName + ` (${requestedName} requested — API key not found)`,
-      )
-    : chalk.gray("Model: ") + chalk.green(activeName);
+  const enabledToolNames = getEnabledToolNames();
+  const toolCount = enabledToolNames.length;
 
-  // Display conversation info in a box
-  const conversationInfo = boxen(
-    `${chalk.bold("Conversation")}: ${conversation.title}\n${chalk.gray("ID: " + conversation.id)}\n${chalk.gray("Mode: " + conversation.mode)}\n${modelLine}${toolsDisplay}`,
-    {
-      padding: 1,
-      margin: { top: 1, bottom: 1 },
-      borderStyle: "round",
-      borderColor: "cyan",
-      title: "💬 Tool Calling Session",
-      titleAlignment: "center",
-    },
+  const modelDisplay = isFallback
+    ? chalk.hex("#facc15")(activeName + " (fallback)")
+    : chalk.hex("#a78bfa")(activeName);
+
+  console.log(
+    chalk.hex("#22d3ee").bold("orbit α") +
+      chalk.hex("#374151")(" │ ") +
+      modelDisplay +
+      chalk.hex("#374151")(" │ ") +
+      chalk.hex("#38bdf8")("tool calling") +
+      chalk.hex("#374151")(" │ ") +
+      chalk.hex("#4ade80")(toolCount + " tools") +
+      chalk.hex("#374151")(" │ ") +
+      chalk.hex("#6b7280")(conversation.id.slice(0, 8)),
   );
+  console.log(chalk.hex("#1e2230")("─".repeat(60)));
+  console.log("");
 
-  console.log(conversationInfo);
-
-  // Display existing messages if any
   if (conversation.messages?.length > 0) {
-    console.log(chalk.yellow("📜 Previous messages:\n"));
     displayMessages(conversation.messages);
   }
 
@@ -182,26 +142,16 @@ async function initConversation(userId, conversationId = null, mode = "tool") {
 function displayMessages(messages) {
   messages.forEach((msg) => {
     if (msg.role === "user") {
-      const userBox = boxen(chalk.white(msg.content), {
-        padding: 1,
-        margin: { left: 2, bottom: 1 },
-        borderStyle: "round",
-        borderColor: "blue",
-        title: "👤 You",
-        titleAlignment: "left",
-      });
-      console.log(userBox);
+      console.log(chalk.hex("#38bdf8").bold("you"));
+      console.log(chalk.hex("#38bdf8")("│ ") + chalk.hex("#e2e8f0")(msg.content));
+      console.log("");
     } else if (msg.role === "assistant") {
-      const renderedContent = marked.parse(msg.content);
-      const assistantBox = boxen(renderedContent.trim(), {
-        padding: 1,
-        margin: { left: 2, bottom: 1 },
-        borderStyle: "round",
-        borderColor: "green",
-        title: "🤖 Assistant (with tools)",
-        titleAlignment: "left",
+      console.log(chalk.hex("#a78bfa").bold("orbit"));
+      const rendered = marked.parse(msg.content).trim();
+      rendered.split("\n").forEach((line) => {
+        console.log(chalk.hex("#374151")("│ ") + line);
       });
-      console.log(assistantBox);
+      console.log("");
     }
   });
 }
@@ -211,34 +161,36 @@ async function saveMessage(conversationId, role, content) {
 }
 
 async function getAIResponse(conversationId) {
-  const spinner = yoctoSpinner({
-    text: "AI is thinking...",
-    color: "cyan",
-  }).start();
-
   const dbMessages = await chatService.getMessages(conversationId);
   const aiMessages = chatService.formatMessagesForAI(dbMessages);
-
   const tools = getEnabledTools({ outputDirectory: process.cwd() });
 
   let fullResponse = "";
   let isFirstChunk = true;
+  let lineBuffer = "";
   const toolCallsDetected = [];
 
+  const spinner = yoctoSpinner({
+    text: chalk.hex("#facc15")("thinking..."),
+    color: "yellow",
+  }).start();
+
   try {
-    // IMPORTANT: Pass tools in the streamText config
     const result = await sendMessageWithFallback(
       aiMessages,
       (chunk) => {
         if (isFirstChunk) {
           spinner.stop();
-          console.log("\n");
-          const header = chalk.green.bold("🤖 Assistant:");
-          console.log(header);
-          console.log(chalk.gray("─".repeat(60)));
           isFirstChunk = false;
         }
         fullResponse += chunk;
+        lineBuffer += chunk;
+
+        const lines = lineBuffer.split("\n");
+        for (let i = 0; i < lines.length - 1; i++) {
+          console.log(chalk.hex("#374151")("│ ") + lines[i]);
+        }
+        lineBuffer = lines[lines.length - 1];
       },
       {
         tools,
@@ -249,95 +201,101 @@ async function getAIResponse(conversationId) {
       },
       spinner,
     );
+
     console.log('DEBUG steps:', result.steps?.length);
     console.log('DEBUG toolResults:', result.toolResults?.length);
     console.log('DEBUG content:', result.content?.slice(0, 100));
 
-    // Display tool calls if any
+    if (lineBuffer) {
+      console.log(chalk.hex("#374151")("│ ") + lineBuffer);
+      lineBuffer = "";
+    }
+
     if (toolCallsDetected.length > 0) {
-      console.log("\n");
-      const toolCallBox = boxen(
-        toolCallsDetected
-          .map(
-            (tc) =>
-              `${chalk.cyan("🔧 Tool:")} ${tc.toolName}\n${chalk.gray("Args:")} ${JSON.stringify(tc.input ?? tc.args, null, 2)}`,
-          )
-          .join("\n\n"),
-        {
-          padding: 1,
-          margin: 1,
-          borderStyle: "round",
-          borderColor: "cyan",
-          title: "🛠️  Tool Calls",
-        },
-      );
-      console.log(toolCallBox);
+      console.log("");
+      console.log(chalk.hex("#6b7280")("── tool activity " + "─".repeat(43)));
+      toolCallsDetected.forEach((tc) => {
+        const args = JSON.stringify(tc.input ?? tc.args ?? {});
+        console.log(
+          chalk.hex("#374151")("  ▸ ") +
+            chalk.hex("#22d3ee")(tc.toolName) +
+            chalk.hex("#6b7280")(
+              "  " +
+                args.slice(0, 60) +
+                (args.length > 60 ? "..." : ""),
+            ),
+        );
+      });
     }
 
-    // Display tool results if any
     if (result.toolResults && result.toolResults.length > 0) {
-      const toolResultBox = boxen(
-        result.toolResults
-          .map(
-            (tr) =>
-              `${chalk.green("✅ Tool:")} ${tr.toolName}\n${chalk.gray("Result:")} ${JSON.stringify(tr.output ?? tr.result ?? tr, null, 2)?.slice(0, 200)}...`,
-          )
-          .join("\n\n"),
-        {
-          padding: 1,
-          margin: 1,
-          borderStyle: "round",
-          borderColor: "green",
-          title: "📊 Tool Results",
-        },
-      );
-      console.log(toolResultBox);
+      console.log("");
+      console.log(chalk.hex("#6b7280")("── tool results " + "─".repeat(44)));
+      result.toolResults.forEach((tr) => {
+        const raw = tr.output ?? tr.result ?? tr;
+        let display;
+        try {
+          const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+          const inner = parsed?.result ?? parsed?.error ?? parsed;
+          display =
+            typeof inner === "object"
+              ? JSON.stringify(inner, null, 2)
+              : String(inner);
+        } catch {
+          display = String(raw);
+        }
+        console.log(chalk.hex("#4ade80")("  ✓ ") + chalk.hex("#22d3ee")(tr.toolName));
+        display
+          .split("\n")
+          .slice(0, 6)
+          .forEach((line) => {
+            console.log(chalk.hex("#6b7280")("    " + line));
+          });
+      });
     }
 
-    // Stop spinner if no text chunks arrived (tool-only response)
     if (isFirstChunk) {
       spinner.stop();
-      console.log("\n");
-      console.log(chalk.green.bold("🤖 Assistant:"));
-      console.log(chalk.gray("─".repeat(60)));
     }
 
-    // If no text response but tool results exist, synthesize display
     if (!fullResponse && result.toolResults && result.toolResults.length > 0) {
-  fullResponse = result.toolResults
-    .map(tr => {
-      const raw = tr.output ?? tr.result ?? tr;
-      try {
-        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-        const inner = parsed?.result ?? parsed?.error ?? parsed;
-        return typeof inner === 'object'
-          ? JSON.stringify(inner, null, 2)
-          : String(inner);
-      } catch {
-        return String(raw);
-      }
-    })
-    .join("\n\n");
-}
+      fullResponse = result.toolResults
+        .map((tr) => {
+          const raw = tr.output ?? tr.result ?? tr;
+          try {
+            const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+            const inner = parsed?.result ?? parsed?.error ?? parsed;
+            return typeof inner === "object"
+              ? JSON.stringify(inner, null, 2)
+              : String(inner);
+          } catch {
+            return String(raw);
+          }
+        })
+        .join("\n\n");
+    }
 
-    // Render markdown response
-    console.log("\n");
-    const renderedMarkdown = marked.parse(
-      fullResponse || "(No response generated)",
-    );
-    console.log(renderedMarkdown);
-    console.log(chalk.gray("─".repeat(60)));
-    console.log("\n");
+    if (fullResponse) {
+      console.log("");
+      console.log(chalk.hex("#6b7280")("── response " + "─".repeat(48)));
+      console.log(chalk.hex("#a78bfa").bold("orbit"));
+      const rendered = marked.parse(fullResponse).trim();
+      rendered.split("\n").forEach((line) => {
+        console.log(chalk.hex("#374151")("│ ") + line);
+      });
+    }
+
+    console.log("");
+    console.log(chalk.hex("#1e2230")("─".repeat(60)));
+    console.log("");
 
     return result.content || fullResponse || "";
-
-    return result.content;
   } catch (error) {
     console.log('DEBUG ERROR:', error.message);
     console.log('DEBUG ERROR code:', error?.code);
     console.log('DEBUG ERROR status:', error?.status);
-    spinner.error("Failed to get AI response");
-
+    spinner.stop();
+    console.log(chalk.hex("#f87171")("error: " + error.message));
     throw error;
   }
 }
@@ -355,23 +313,25 @@ async function updateConversationTitle(
 
 async function chatLoop(conversation) {
   const enabledToolNames = getEnabledToolNames();
-  const helpBox = boxen(
-    `${chalk.gray("• Type your message and press Enter")}\n${chalk.gray("• AI has access to:")} ${enabledToolNames.length > 0 ? enabledToolNames.join(", ") : "No tools"}\n${chalk.gray('• Type "exit" to end conversation')}\n${chalk.gray("• Press Ctrl+C to quit anytime")}`,
-    {
-      padding: 1,
-      margin: { bottom: 1 },
-      borderStyle: "round",
-      borderColor: "gray",
-      dimBorder: true,
-    },
-  );
 
-  console.log(helpBox);
+  console.log(
+    chalk
+      .hex("#6b7280")(
+        'type a message and press enter  ·  "exit" to quit  ·  ctrl+c to force quit',
+      ),
+  );
+  console.log(
+    chalk.hex("#374151")("tools: ") +
+      chalk.hex("#22d3ee")(
+        enabledToolNames.length > 0 ? enabledToolNames.join(", ") : "none",
+      ),
+  );
+  console.log("");
 
   while (true) {
     const userInput = await text({
-      message: chalk.blue("💬 Your message"),
-      placeholder: "Type your message...",
+      message: chalk.hex("#38bdf8")("›"),
+      placeholder: "Type a message...",
       validate(value) {
         if (!value || value.trim().length === 0) {
           return "Message cannot be empty";
@@ -380,13 +340,8 @@ async function chatLoop(conversation) {
     });
 
     if (isCancel(userInput)) {
-      const exitBox = boxen(chalk.yellow("Chat session ended. Goodbye! 👋"), {
-        padding: 1,
-        margin: 1,
-        borderStyle: "round",
-        borderColor: "yellow",
-      });
-      console.log(exitBox);
+      console.log("");
+      console.log(chalk.hex("#6b7280")("session ended"));
       process.exit(0);
     }
 
@@ -394,15 +349,10 @@ async function chatLoop(conversation) {
       break;
     }
 
-    const userBox = boxen(chalk.white(userInput), {
-      padding: 1,
-      margin: { left: 2, top: 1, bottom: 1 },
-      borderStyle: "round",
-      borderColor: "blue",
-      title: "👤 You",
-      titleAlignment: "left",
-    });
-    console.log(userBox);
+    console.log("");
+    console.log(chalk.hex("#38bdf8").bold("you"));
+    console.log(chalk.hex("#38bdf8")("│ ") + chalk.hex("#e2e8f0")(userInput));
+    console.log("");
 
     await saveMessage(conversation.id, "user", userInput);
     const messages = await chatService.getMessages(conversation.id);
@@ -414,36 +364,14 @@ async function chatLoop(conversation) {
 
 export async function startToolChat(conversationId = null) {
   try {
-    intro(
-      boxen(chalk.bold.cyan("🛠️  Orbit AI - Tool Calling Mode"), {
-        padding: 1,
-        borderStyle: "double",
-        borderColor: "cyan",
-      }),
-    );
-
     const user = await getUserFromToken();
-
-    // Select tools
     await selectTools();
-
-    const conversation = await initConversation(
-      user.id,
-      conversationId,
-      "tool",
-    );
+    const conversation = await initConversation(user.id, conversationId, "tool");
     await chatLoop(conversation);
-
-    // Reset tools on exit
     resetTools();
   } catch (error) {
-    const errorBox = boxen(chalk.red(`❌ Error: ${error.message}`), {
-      padding: 1,
-      margin: 1,
-      borderStyle: "round",
-      borderColor: "red",
-    });
-    console.log(errorBox);
+    console.log("");
+    console.log(chalk.hex("#f87171")("error: " + error.message));
     resetTools();
     process.exit(1);
   }
