@@ -39,7 +39,7 @@ async function selectModelProvider() {
   });
 
   if (isCancel(selected)) {
-    cancel(chalk.yellow("Model selection cancelled"));
+    cancel(chalk.hex('#6b7280')('cancelled'));
     process.exit(0);
   }
 
@@ -47,17 +47,17 @@ async function selectModelProvider() {
 
   if (!chosenProvider.available) {
     console.log(
-      chalk.red(`\n✗ ${chosenProvider.name} requires ${chosenProvider.hint}`)
+      chalk.hex('#f87171')('  ' + chosenProvider.name + ' requires ' + chosenProvider.hint)
     );
     console.log(
-      chalk.yellow(
-        `Falling back to Gemini. Add the API key to .env to use ${chosenProvider.name}.\n`
-      )
+      chalk.hex('#facc15')('  falling back to Gemini  ·  add API key to .env to use ' + chosenProvider.name)
     );
+    console.log('');
     process.env.ORBITAL_MODEL_PROVIDER = 'gemini';
   } else {
     process.env.ORBITAL_MODEL_PROVIDER = selected;
-    console.log(chalk.green(`\n✓ Using ${chosenProvider.name}\n`));
+    console.log(chalk.hex('#4ade80')('  using ' + chosenProvider.name));
+    console.log('');
   }
 }
 
@@ -76,7 +76,7 @@ async function promptOutputDirectory(invocationDir) {
   });
 
   if (isCancel(answer)) {
-    cancel(chalk.yellow("Cancelled"));
+    cancel(chalk.hex('#6b7280')('cancelled'));
     process.exit(0);
   }
 
@@ -91,12 +91,12 @@ async function promptOutputDirectory(invocationDir) {
     });
 
     if (isCancel(shouldCreate) || !shouldCreate) {
-      cancel(chalk.yellow("Cancelled"));
+      cancel(chalk.hex('#6b7280')('cancelled'));
       process.exit(0);
     }
 
     await fs.mkdir(outputDir, { recursive: true });
-    console.log(chalk.green(`✓ Created directory: ${outputDir}`));
+    console.log(chalk.hex('#4ade80')('  created ' + outputDir));
   }
 
   return outputDir;
@@ -119,7 +119,7 @@ async function askSessionStart(userId, mode) {
   });
 
   if (isCancel(sessionChoice)) {
-    cancel(chalk.yellow("Cancelled"));
+    cancel(chalk.hex('#6b7280')('cancelled'));
     process.exit(0);
   }
 
@@ -130,14 +130,19 @@ async function askSessionStart(userId, mode) {
   }
 
   // Load past conversations for this mode
-  const spinner = yoctoSpinner({ text: "Loading conversations..." }).start();
+  const spinner = yoctoSpinner({ 
+    text: chalk.hex('#6b7280')('loading conversations...'),
+    color: 'yellow'
+  }).start();
   const all = await chatService.getUserConversations(userId);
   spinner.stop();
 
   const filtered = all.filter((c) => c.mode === mode);
 
   if (filtered.length === 0) {
-    console.log(chalk.yellow(`\nNo previous ${mode} conversations found. Starting a new one.\n`));
+    console.log('');
+    console.log(chalk.hex('#facc15')('no previous ' + mode + ' conversations found  ·  starting new'));
+    console.log('');
     return null;
   }
 
@@ -176,7 +181,7 @@ async function askSessionStart(userId, mode) {
   });
 
   if (isCancel(selected)) {
-    cancel(chalk.yellow("Cancelled"));
+    cancel(chalk.hex('#6b7280')('cancelled'));
     process.exit(0);
   }
 
@@ -189,11 +194,14 @@ const wakeUpAction = async (options, invocationDir) => {
   const token = await getStoredToken();
 
   if (!token?.access_token) {
-    console.log(chalk.red("Not authenticated. Please login."));
+    console.log(chalk.hex('#f87171')('not authenticated  ·  run orbit login'));
     return;
   }
 
-  const spinner = yoctoSpinner({ text: "Fetching User Information..." });
+  const spinner = yoctoSpinner({ 
+    text: chalk.hex('#6b7280')('loading...'),
+    color: 'yellow'
+  });
   spinner.start();
 
   const user = await prisma.user.findFirst({
@@ -213,11 +221,12 @@ const wakeUpAction = async (options, invocationDir) => {
   spinner.stop();
 
   if (!user) {
-    console.log(chalk.red("User not found."));
+    console.log(chalk.hex('#f87171')('user not found'));
     return;
   }
 
-  console.log(chalk.green(`\nWelcome back, ${user.name}!\n`));
+  console.log(chalk.hex('#4ade80')('  welcome back, ' + user.name));
+  console.log('');
 
   await selectModelProvider();
 
@@ -258,7 +267,7 @@ const wakeUpAction = async (options, invocationDir) => {
     });
 
     if (isCancel(choice) || choice === "exit") {
-      cancel(chalk.yellow("Goodbye! 👋"));
+      cancel(chalk.hex('#6b7280')('goodbye'));
       process.exit(0);
     }
 
@@ -293,7 +302,9 @@ const wakeUpAction = async (options, invocationDir) => {
     }
 
     // Visual separator between sessions
-    console.log("\n" + chalk.gray("─".repeat(60)) + "\n");
+    console.log('');
+    console.log(chalk.hex('#1e2230')('─'.repeat(60)));
+    console.log('');
 
     // After every completed action, ask whether to return or exit
     const next = await select({
@@ -305,12 +316,14 @@ const wakeUpAction = async (options, invocationDir) => {
     });
 
     if (isCancel(next) || next === "exit") {
-      cancel(chalk.yellow("Goodbye! 👋"));
+      cancel(chalk.hex('#6b7280')('goodbye'));
       process.exit(0);
     }
 
     // next === "menu" → loop continues, showing the main menu again
-    console.log("\n" + chalk.gray("─".repeat(60)) + "\n");
+    console.log('');
+    console.log(chalk.hex('#1e2230')('─'.repeat(60)));
+    console.log('');
   }
 };
 
