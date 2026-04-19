@@ -1,5 +1,4 @@
 import chalk from "chalk";
-import boxen from "boxen";
 import { text, select, isCancel, cancel, intro, outro } from "@clack/prompts";
 import yoctoSpinner from "yocto-spinner";
 import { marked } from "marked";
@@ -33,20 +32,20 @@ const TOOL_RESULT_SUMMARY_MAX_LENGTH = 120;
 
 marked.use(
   markedTerminal({
-    code: chalk.cyan,
-    blockquote: chalk.gray.italic,
-    heading: chalk.green.bold,
-    firstHeading: chalk.magenta.underline.bold,
-    hr: chalk.reset,
-    listitem: chalk.reset,
-    list: chalk.reset,
-    paragraph: chalk.reset,
+    code: chalk.hex('#22d3ee'),
+    blockquote: chalk.hex('#6b7280').italic,
+    heading: chalk.hex('#a78bfa').bold,
+    firstHeading: chalk.hex('#c084fc').bold,
+    hr: chalk.hex('#374151'),
+    listitem: chalk.hex('#f9fafb'),
+    list: chalk.hex('#f9fafb'),
+    paragraph: chalk.hex('#e2e8f0'),
     strong: chalk.bold,
     em: chalk.italic,
-    codespan: chalk.yellow.bgBlack,
-    del: chalk.dim.gray.strikethrough,
-    link: chalk.blue.underline,
-    href: chalk.blue.underline,
+    codespan: chalk.hex('#22d3ee'),
+    del: chalk.dim,
+    link: chalk.hex('#38bdf8').underline,
+    href: chalk.hex('#38bdf8').underline,
   })
 );
 
@@ -136,8 +135,6 @@ async function getUserFromToken() {
     throw new Error("Not authenticated. Please run 'orbit login' first.");
   }
 
-  const spinner = yoctoSpinner({ text: "Authenticating..." }).start();
-
   const user = await prisma.user.findFirst({
     where: {
       sessions: {
@@ -147,11 +144,9 @@ async function getUserFromToken() {
   });
 
   if (!user) {
-    spinner.error("User not found");
-    throw new Error("User not found. Please login again.");
+    throw new Error('User not found. Please login again.');
   }
 
-  spinner.success(`Welcome back, ${user.name}!`);
   return user;
 }
 
@@ -159,7 +154,7 @@ async function getUserFromToken() {
 
 async function generatePlan(loopState) {
   const spinner = yoctoSpinner({
-    text: "🧠 Generating execution plan...",
+    text: "Generating execution plan...",
   }).start();
 
   try {
@@ -201,162 +196,139 @@ Provide a clear rationale explaining your overall approach.`,
 // ─── Display helpers ──────────────────────────────────────────────────────────
 
 function displayPlan(loopState) {
-  const stepLines = loopState.plan
-    .map((step, i) => `  ${chalk.cyan(`Step ${i + 1}:`)} ${step}`)
-    .join("\n");
-
+  console.log('');
+  console.log(chalk.hex('#22d3ee').bold('orbit') + chalk.hex('#374151')(' · ') + chalk.hex('#a78bfa')('plan generated'));
+  console.log('');
   console.log(
-    boxen(
-      `${chalk.bold("Goal:")} ${chalk.white(loopState.goal)}\n\n` +
-        `${chalk.bold("Approach:")} ${chalk.gray(loopState.rationale)}\n\n` +
-        `${chalk.bold("Steps:")}\n${stepLines}`,
-      {
-        padding: 1,
-        margin: { top: 1, bottom: 1 },
-        borderStyle: "round",
-        borderColor: "cyan",
-        title: `📋 Execution Plan (${loopState.plan.length} steps)`,
-        titleAlignment: "center",
-      }
-    )
+    chalk.hex('#6b7280')('goal  ') +
+    chalk.hex('#f9fafb')(loopState.goal)
   );
+  console.log(
+    chalk.hex('#6b7280')('why   ') +
+    chalk.hex('#6b7280')(loopState.rationale)
+  );
+  console.log('');
+  console.log(chalk.hex('#374151')('── steps ' + '─'.repeat(51)));
+  loopState.plan.forEach((step, i) => {
+    console.log(
+      chalk.hex('#374151')(`  ${String(i + 1).padStart(2, ' ')}  `) +
+      chalk.hex('#e2e8f0')(step)
+    );
+  });
+  console.log(chalk.hex('#374151')('─'.repeat(60)));
+  console.log('');
 }
 
 function displayStepHeader(loopState) {
-  const stepIndex = loopState.currentStep;
-  const step = loopState.plan[stepIndex];
-  const stepNum = stepIndex + 1;
+  const stepNum = loopState.currentStep + 1;
   const total = loopState.plan.length;
-  const filled = "█".repeat(stepNum);
-  const empty = "░".repeat(Math.max(0, total - stepNum));
-  const progressBar = chalk.green(filled) + chalk.gray(empty);
+  const step = loopState.plan[loopState.currentStep];
+  const filled = '█'.repeat(stepNum);
+  const empty = '░'.repeat(Math.max(0, total - stepNum));
 
+  console.log('');
   console.log(
-    "\n" +
-      boxen(
-        `${progressBar} ${chalk.bold(`${stepNum} / ${total}`)}\n\n` +
-          `${chalk.bold("Executing:")} ${chalk.white(step)}`,
-        {
-          padding: 1,
-          borderStyle: "round",
-          borderColor: "yellow",
-          title: `⚡ Step ${stepNum} of ${total}`,
-          titleAlignment: "center",
-        }
-      )
+    chalk.hex('#facc15')(filled) +
+    chalk.hex('#374151')(empty) +
+    chalk.hex('#6b7280')(`  step ${stepNum}/${total}`) +
+    chalk.hex('#374151')('  ·  ') +
+    chalk.hex('#facc15')('acting')
   );
+  console.log(
+    chalk.hex('#374151')('  ') +
+    chalk.hex('#e2e8f0')(step)
+  );
+  console.log('');
 }
 
 function displayReflection(reflection, stepNum) {
-  const actionConfig = {
-    proceed: {
-      color: chalk.green,
-      emoji: "➡️ ",
-      label: "Proceed to next step",
-      border: "green",
-    },
-    retry: {
-      color: chalk.yellow,
-      emoji: "🔄 ",
-      label: "Retry this step",
-      border: "yellow",
-    },
-    terminate: {
-      color: chalk.magenta,
-      emoji: "🏁",
-      label: "Terminate — goal complete",
-      border: "magenta",
-    },
-  };
+  const actionColor = reflection.nextAction === 'proceed'
+    ? chalk.hex('#4ade80')
+    : reflection.nextAction === 'retry'
+    ? chalk.hex('#facc15')
+    : chalk.hex('#c084fc');
 
-  const cfg = actionConfig[reflection.nextAction] || actionConfig.proceed;
+  const actionLabel = reflection.nextAction === 'proceed'
+    ? 'proceed to next step'
+    : reflection.nextAction === 'retry'
+    ? 'retry this step'
+    : 'terminate — goal complete';
 
+  console.log('');
   console.log(
-    boxen(
-      `${chalk.bold("Assessment:")} ${reflection.assessment}\n\n` +
-        `${chalk.bold("Decision:")} ${cfg.color(
-          `${cfg.emoji}  ${cfg.label}`
-        )}\n` +
-        `${chalk.bold("Reason:")} ${chalk.gray(reflection.reason)}`,
-      {
-        padding: 1,
-        margin: { top: 1, bottom: 1 },
-        borderStyle: "round",
-        borderColor: cfg.border,
-        title: `🔍 Reflection — Step ${stepNum}`,
-        titleAlignment: "center",
-      }
-    )
+    chalk.hex('#6b7280')('── reflect step ' + stepNum + ' ' + '─'.repeat(43))
   );
+  console.log(
+    chalk.hex('#6b7280')('  decision  ') +
+    actionColor(actionLabel)
+  );
+  console.log(
+    chalk.hex('#6b7280')('  reason    ') +
+    chalk.hex('#6b7280')(reflection.reason)
+  );
+  console.log('');
 }
 
 function displayFinalOutput(loopState) {
-  const content = loopState.finalOutput || "No output available.";
-  const rendered = marked.parse(content);
-  const statusLabel =
-    loopState.status === "complete"
-      ? chalk.green("✅ COMPLETE")
-      : chalk.red("❌ FAILED");
+  const content = loopState.finalOutput || 'No output available.';
+  const isComplete = loopState.status === 'complete';
 
+  console.log('');
   console.log(
-    boxen(rendered.trim(), {
-      padding: 1,
-      margin: { top: 1, bottom: 1 },
-      borderStyle: "double",
-      borderColor: loopState.status === "complete" ? "green" : "red",
-      title: `${statusLabel}  Final Output`,
-      titleAlignment: "center",
-    })
+    chalk.hex('#374151')('── final output ' + '─'.repeat(44))
   );
+  console.log(
+    chalk.hex('#22d3ee').bold('orbit') +
+    chalk.hex('#374151')(' · ') +
+    (isComplete
+      ? chalk.hex('#4ade80')('complete')
+      : chalk.hex('#f87171')('failed'))
+  );
+  console.log('');
+
+  const rendered = marked.parse(content).trim();
+  rendered.split('\n').forEach(line => {
+    console.log(chalk.hex('#374151')('│ ') + line);
+  });
+
+  console.log('');
+  console.log(chalk.hex('#1e2230')('─'.repeat(60)));
+  console.log('');
 }
 
 function displayContextSummary(context) {
-  const lines = [];
-
-  lines.push(
-    `${chalk.bold("Directory:")} ${chalk.white(context.workingDirectory)}`
-  );
-  lines.push(
-    `${chalk.bold("Language:")}  ${chalk.cyan(context.detectedLanguage)}`
-  );
-
-  if (context.detectedFramework) {
-    lines.push(
-      `${chalk.bold("Framework:")} ${chalk.cyan(context.detectedFramework)}`
-    );
-  }
-
-  if (context.packageJson?.name) {
-    lines.push(
-      `${chalk.bold("Project:")}   ${chalk.white(context.packageJson.name)}` +
-        (context.packageJson.version
-          ? chalk.gray(` v${context.packageJson.version}`)
-          : "")
-    );
-  }
-
-  if (context.configFiles.length > 0) {
-    lines.push(
-      `${chalk.bold("Configs:")}   ${chalk.gray(context.configFiles.join(", "))}`
-    );
-  }
-
-  if (!context.packageJson) {
-    lines.push(
-      chalk.yellow("⚠️  No package.json found — proceeding with minimal context")
-    );
-  }
-
+  console.log('');
+  console.log(chalk.hex('#374151')('── project context ' + '─'.repeat(41)));
   console.log(
-    boxen(lines.join("\n"), {
-      padding: 1,
-      margin: { top: 1, bottom: 1 },
-      borderStyle: "round",
-      borderColor: "magenta",
-      title: "🗂️  Project Context",
-      titleAlignment: "center",
-    })
+    chalk.hex('#6b7280')('  dir        ') +
+    chalk.hex('#f9fafb')(context.workingDirectory)
   );
+  console.log(
+    chalk.hex('#6b7280')('  language   ') +
+    chalk.hex('#22d3ee')(context.detectedLanguage)
+  );
+  if (context.detectedFramework) {
+    console.log(
+      chalk.hex('#6b7280')('  framework  ') +
+      chalk.hex('#22d3ee')(context.detectedFramework)
+    );
+  }
+  if (context.packageJson?.name) {
+    console.log(
+      chalk.hex('#6b7280')('  project    ') +
+      chalk.hex('#f9fafb')(context.packageJson.name) +
+      (context.packageJson.version
+        ? chalk.hex('#6b7280')(' v' + context.packageJson.version)
+        : '')
+    );
+  }
+  if (context.configFiles.length > 0) {
+    console.log(
+      chalk.hex('#6b7280')('  configs    ') +
+      chalk.hex('#6b7280')(context.configFiles.join(', '))
+    );
+  }
+  console.log('');
 }
 
 // ─── Phase 2: Act ─────────────────────────────────────────────────────────────
@@ -456,31 +428,31 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
       const result = await sendMessageWithFallback(
         messages,
         (chunk) => {
-        const aiService = getProvider();
-        if (isFirstChunk) {
-          stopSpinnerOnce();
-          console.log(
-            "\n" + chalk.bold(`  📝 Step ${stepNum} output:`)
-          );
-          console.log(chalk.gray("  " + "─".repeat(55)));
-          isFirstChunk = false;
-        }
-        stepResult += chunk;
-        process.stdout.write(chalk.white(chunk));
+          if (isFirstChunk) {
+            stopSpinnerOnce();
+            console.log(
+              chalk.hex('#374151')('── step ' + stepNum + ' output ' + '─'.repeat(46))
+            );
+            isFirstChunk = false;
+          }
+          stepResult += chunk;
+          process.stdout.write(chalk.hex('#e2e8f0')(chunk));
         },
         {
           system: ORBITAL_SYSTEM_PROMPT,
           ...(tools && { tools }),
           onToolCall: (toolCall, toolResult) => {
             stopSpinnerOnce();
+            console.log('');
             console.log(
-              chalk.cyan(`\n  🔧 Invoking tool: ${toolCall.toolName}`)
+              chalk.hex('#374151')('  ▸ ') +
+              chalk.hex('#22d3ee')(toolCall.toolName)
             );
             if (toolResult !== undefined) {
+              const resultText = formatToolResult(toolResult.result);
               console.log(
-                chalk.green(
-                  `  ✔ Tool result: ${formatToolResult(toolResult.result)}`
-                )
+                chalk.hex('#4ade80')('  ✓ ') +
+                chalk.hex('#6b7280')(resultText.slice(0, 80) + (resultText.length > 80 ? '...' : ''))
               );
             }
           },
@@ -494,7 +466,7 @@ Provide a thorough, complete, and specific result for this step. Be precise and 
 
       stopSpinnerOnce();
 
-      console.log("\n" + chalk.gray("  " + "─".repeat(55)) + "\n");
+      console.log('\n' + chalk.hex('#374151')('─'.repeat(60)) + '\n');
 
       let content = result.content || stepResult;
 
@@ -809,38 +781,16 @@ async function runReasoningLoop(loopState, conversationId) {
 
 async function iterativeAgentLoop(conversation, workingDirectory) {
   console.log(
-    boxen(
-      `${chalk.cyan.bold("How it works:")}\n\n` +
-        `  ${chalk.gray("1.")} ${chalk.white("You provide a goal")}\n` +
-        `  ${chalk.gray("2.")} ${chalk.white(
-          "The agent generates a step-by-step plan"
-        )}\n` +
-        `  ${chalk.gray("3.")} ${chalk.white(
-          "Each step is executed and observed"
-        )}\n` +
-        `  ${chalk.gray("4.")} ${chalk.white(
-          "The agent reflects and decides: proceed / retry / terminate"
-        )}\n` +
-        `  ${chalk.gray("5.")} ${chalk.white(
-          "Final output is presented when the goal is complete"
-        )}\n\n` +
-        chalk.dim(
-          `Maximum ${MAX_STEPS} steps per goal.  Type "exit" to quit.`
-        ),
-      {
-        padding: 1,
-        margin: { bottom: 1 },
-        borderStyle: "round",
-        borderColor: "cyan",
-        title: "🔄 Iterative Reasoning Loop",
-        titleAlignment: "center",
-      }
+    chalk.hex('#6b7280')(
+      'provide a goal  ·  agent will plan and execute up to ' +
+      MAX_STEPS + ' steps  ·  "exit" to quit'
     )
   );
+  console.log('');
 
   // ── Read project context once for the entire session ──────────────────────
   const contextSpinner = yoctoSpinner({
-    text: "🗂️  Reading project context...",
+    text: "Reading project context...",
   }).start();
 
   let projectContext = null;
@@ -871,21 +821,23 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
           ? String(task.stepResults[task.stepResults.length - 1]).slice(0, 120)
           : "No steps completed yet";
 
+      console.log('');
+      console.log(chalk.hex('#374151')('── interrupted task ' + '─'.repeat(40)));
       console.log(
-        boxen(
-          `${chalk.bold("Goal:")} ${chalk.white(task.goal)}\n` +
-            `${chalk.bold("Steps completed:")} ${chalk.cyan(String(task.currentStep))} / ${chalk.cyan(String(Array.isArray(task.plan) ? task.plan.length : "?"))}\n` +
-            `${chalk.bold("Last result:")} ${chalk.gray(lastResult + (lastResult.length >= 120 ? "…" : ""))}`,
-          {
-            padding: 1,
-            margin: { top: 1, bottom: 1 },
-            borderStyle: "round",
-            borderColor: "yellow",
-            title: "⏸️  Interrupted Task Detected",
-            titleAlignment: "center",
-          }
-        )
+        chalk.hex('#6b7280')('  goal   ') +
+        chalk.hex('#f9fafb')(task.goal)
       );
+      console.log(
+        chalk.hex('#6b7280')('  steps  ') +
+        chalk.hex('#22d3ee')(String(task.currentStep)) +
+        chalk.hex('#6b7280')(' / ') +
+        chalk.hex('#22d3ee')(String(Array.isArray(task.plan) ? task.plan.length : '?'))
+      );
+      console.log(
+        chalk.hex('#6b7280')('  last   ') +
+        chalk.hex('#6b7280')(lastResult + (lastResult.length >= 120 ? '...' : ''))
+      );
+      console.log('');
 
       const resumeChoice = await select({
         message: `Resume from step ${task.currentStep + 1} or start a new goal?`,
@@ -896,7 +848,7 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
       });
 
       if (isCancel(resumeChoice)) {
-        console.log(chalk.yellow("\n👋 Agent session cancelled\n"));
+        console.log(chalk.yellow("\nAgent session cancelled\n"));
         process.exit(0);
       }
 
@@ -914,7 +866,8 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
           workingDirectory
         );
 
-        console.log(chalk.green(`\n▶  Resuming task from step ${task.currentStep + 1}...\n`));
+        console.log(chalk.hex('#4ade80')('resuming from step ' + (task.currentStep + 1)));
+        console.log('');
 
         try {
           await runReasoningLoop(loopState, conversation.id);
@@ -929,12 +882,15 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
           }
 
           if (loopState.status === "complete") {
-            console.log(chalk.green.bold("\n✅ Goal accomplished! Ready for next goal.\n"));
+            console.log(chalk.hex('#4ade80')('goal accomplished  ·  ready for next goal'));
+            console.log('');
           } else {
-            console.log(chalk.yellow.bold("\n⚠️  Loop ended without fully completing the goal.\n"));
+            console.log(chalk.hex('#facc15')('loop ended  ·  goal not fully completed'));
+            console.log('');
           }
         } catch (error) {
-          console.log(chalk.red(`\n❌ Agent error: ${error.message}\n`));
+          console.log(chalk.hex('#f87171')('error: ' + error.message));
+          console.log('');
           await chatService.addMessage(conversation.id, "assistant", `[Error] ${error.message}`);
         }
 
@@ -957,28 +913,25 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
     });
 
     if (isCancel(userInput)) {
-      console.log(chalk.yellow("\n👋 Agent session cancelled\n"));
+      console.log(chalk.yellow("\nAgent session cancelled\n"));
       process.exit(0);
     }
 
     if (userInput.trim().toLowerCase() === "exit") {
-      console.log(chalk.yellow("\n👋 Iterative agent session ended\n"));
+      console.log(chalk.yellow("\nIterative agent session ended\n"));
       break;
     }
 
     const goal = userInput.trim();
 
     // Display the goal
+    console.log('');
+    console.log(chalk.hex('#38bdf8').bold('you'));
     console.log(
-      boxen(chalk.white(goal), {
-        padding: 1,
-        margin: { top: 1, bottom: 1 },
-        borderStyle: "round",
-        borderColor: "blue",
-        title: "🎯 Goal",
-        titleAlignment: "left",
-      })
+      chalk.hex('#38bdf8')('│ ') +
+      chalk.hex('#e2e8f0')(goal)
     );
+    console.log('');
 
     // Persist user message
     await chatService.addMessage(conversation.id, "user", goal);
@@ -1009,18 +962,15 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
       }
 
       if (loopState.status === "complete") {
-        console.log(
-          chalk.green.bold("\n✅ Goal accomplished! Ready for next goal.\n")
-        );
+        console.log(chalk.hex('#4ade80')('goal accomplished  ·  ready for next goal'));
+        console.log('');
       } else {
-        console.log(
-          chalk.yellow.bold(
-            "\n⚠️  Loop ended without fully completing the goal.\n"
-          )
-        );
+        console.log(chalk.hex('#facc15')('loop ended  ·  goal not fully completed'));
+        console.log('');
       }
     } catch (error) {
-      console.log(chalk.red(`\n❌ Agent error: ${error.message}\n`));
+      console.log(chalk.hex('#f87171')('error: ' + error.message));
+      console.log('');
       if (loopState?.taskId) {
         await agentTaskService.failTask(loopState.taskId, error.message).catch(() => {});
       }
@@ -1037,63 +987,37 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
 
 export async function startIterativeAgentChat(conversationId = null, workingDirectory = process.cwd()) {
   try {
-    intro(
-      boxen(
-        chalk.bold.cyan("🔄 Orbit AI — Iterative Agent Mode\n\n") +
-          chalk.gray("Goal → Plan → Act → Observe → Reflect → Repeat"),
-        {
-          padding: 1,
-          borderStyle: "double",
-          borderColor: "cyan",
-        }
-      )
-    );
-
     const user = await getUserFromToken();
 
-    const spinner = yoctoSpinner({ text: "Loading conversation..." }).start();
     const conversation = await chatService.getOrCreateConversation(
       user.id,
       conversationId,
       "agent"
     );
-    spinner.success("Conversation loaded");
+
     const { activeName, requestedName, isFallback } = getActiveProviderInfo();
-    const modelLine = isFallback
-      ? chalk.gray("Model: ") +
-        chalk.yellow(
-          activeName + ` (${requestedName} requested — API key not found)`
-        )
-      : chalk.gray("Model: ") + chalk.green(activeName);
+    const modelDisplay = isFallback
+      ? chalk.hex('#facc15')(activeName + ' (fallback)')
+      : chalk.hex('#a78bfa')(activeName);
 
     console.log(
-      boxen(
-        `${chalk.bold("Conversation:")} ${conversation.title}\n` +
-          `${chalk.gray("ID:")} ${conversation.id}\n` +
-          `${chalk.gray("Mode:")} ${chalk.cyan("Iterative Agent")}\n` +
-          `${modelLine}\n` +
-          `${chalk.gray("Output Directory:")} ${chalk.white(workingDirectory)}`,
-        {
-          padding: 1,
-          margin: { top: 1, bottom: 1 },
-          borderStyle: "round",
-          borderColor: "cyan",
-          title: "🔄 Session Info",
-          titleAlignment: "center",
-        }
-      )
+      chalk.hex('#22d3ee').bold('orbit α') +
+      chalk.hex('#374151')(' │ ') +
+      modelDisplay +
+      chalk.hex('#374151')(' │ ') +
+      chalk.hex('#c084fc')('iterative agent') +
+      chalk.hex('#374151')(' │ ') +
+      chalk.hex('#6b7280')(conversation.id.slice(0, 8)) +
+      chalk.hex('#374151')(' │ ') +
+      chalk.hex('#4ade80')(workingDirectory)
     );
+    console.log(chalk.hex('#1e2230')('─'.repeat(60)));
+    console.log('');
 
     await iterativeAgentLoop(conversation, workingDirectory);
 
   } catch (error) {
-    console.log(
-      boxen(chalk.red(`❌ Error: ${error.message}`), {
-        padding: 1,
-        margin: 1,
-        borderStyle: "round",
-        borderColor: "red",
-      })
-    );
+    console.log('');
+    console.log(chalk.hex('#f87171')('error: ' + error.message));
   }
 }
