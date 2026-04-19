@@ -71,8 +71,8 @@ export class GeminiProvider {
     // In v5, iterate fullStream which yields all events in order
     for await (const chunk of result.fullStream) {
       if (chunk.type === 'text-delta') {
-        fullResponse += chunk.textDelta;
-        if (onChunk) onChunk(chunk.textDelta);
+        fullResponse += chunk.text;
+        if (onChunk) onChunk(chunk.text);
       } else if (chunk.type === 'tool-call') {
         toolCalls.push(chunk);
       } else if (chunk.type === 'tool-result') {
