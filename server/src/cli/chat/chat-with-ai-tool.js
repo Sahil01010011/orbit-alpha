@@ -213,7 +213,13 @@ async function getAIResponse(conversationId) {
 
     if (toolCallsDetected.length > 0) {
       console.log("");
-      console.log(chalk.hex("#6b7280")("── tool activity " + "─".repeat(43)));
+      const toolActivityLabel = "── tool activity ";
+      console.log(
+        chalk
+          .hex("#6b7280")(
+            toolActivityLabel + "─".repeat(Math.max(0, 60 - toolActivityLabel.length)),
+          ),
+      );
       toolCallsDetected.forEach((tc) => {
         const args = JSON.stringify(tc.input ?? tc.args ?? {});
         console.log(
@@ -230,7 +236,13 @@ async function getAIResponse(conversationId) {
 
     if (result.toolResults && result.toolResults.length > 0) {
       console.log("");
-      console.log(chalk.hex("#6b7280")("── tool results " + "─".repeat(44)));
+      const toolResultsLabel = "── tool results ";
+      console.log(
+        chalk
+          .hex("#6b7280")(
+            toolResultsLabel + "─".repeat(Math.max(0, 60 - toolResultsLabel.length)),
+          ),
+      );
       result.toolResults.forEach((tr) => {
         const raw = tr.output ?? tr.result ?? tr;
         let display;
@@ -277,7 +289,13 @@ async function getAIResponse(conversationId) {
 
     if (fullResponse) {
       console.log("");
-      console.log(chalk.hex("#6b7280")("── response " + "─".repeat(48)));
+      const responseLabel = "── response ";
+      console.log(
+        chalk
+          .hex("#6b7280")(
+            responseLabel + "─".repeat(Math.max(0, 60 - responseLabel.length)),
+          ),
+      );
       console.log(chalk.hex("#a78bfa").bold("orbit"));
       const rendered = marked.parse(fullResponse).trim();
       rendered.split("\n").forEach((line) => {
