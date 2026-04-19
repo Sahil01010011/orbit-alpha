@@ -184,7 +184,7 @@ async function agentLoop(conversation, outputDir) {
       console.log(chalk.hex('#f87171')('error: ' + error.message));
       console.log('');
 
-      await saveMessage(conversation.id, "assistant", `Error: ${error.message}`);
+      await saveMessage(conversation.id, 'assistant', `Error: ${error.message}`);
 
       const retry = await confirm({
         message: chalk.hex('#38bdf8')('try again?'),
