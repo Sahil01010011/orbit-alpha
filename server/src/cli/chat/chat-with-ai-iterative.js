@@ -51,7 +51,7 @@ marked.use(
 
 // ─── Services ─────────────────────────────────────────────────────────────────
 
-// const aiService = getProvider();
+const aiService = getProvider();
 const chatService = new ChatService();
 const agentTaskService = new AgentTaskService();
 
