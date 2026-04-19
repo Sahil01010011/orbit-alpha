@@ -1,6 +1,5 @@
 import chalk from "chalk";
-import boxen from "boxen";
-import { text, isCancel, cancel, intro, outro, confirm } from "@clack/prompts";
+import { text, isCancel, confirm } from "@clack/prompts";
 import { AIService } from "../ai/google-service.js";
 import { ChatService } from "../../service/chat.service.js";
 import { getStoredToken } from "../commands/auth/login.js";
@@ -12,7 +11,7 @@ const chatService = new ChatService();
 
 async function getUserFromToken() {
   const token = await getStoredToken();
-  
+
   if (!token?.access_token) {
     throw new Error("Not authenticated. Please run 'orbit login' first.");
   }
@@ -26,10 +25,9 @@ async function getUserFromToken() {
   });
 
   if (!user) {
-    throw new Error("User not found. Please login again.");
+    throw new Error('User not found. Please login again.');
   }
 
-  console.log(chalk.green(`\n✓ Welcome back, ${user.name}!\n`));
   return user;
 }
 
@@ -37,26 +35,21 @@ async function initConversation(userId, conversationId = null, outputDir) {
   const conversation = await chatService.getOrCreateConversation(
     userId,
     conversationId,
-    "agent"
+    'agent'
   );
-  
-  const conversationInfo = boxen(
-    `${chalk.bold("Conversation")}: ${conversation.title}\n` +
-    `${chalk.gray("ID:")} ${conversation.id}\n` +
-    `${chalk.gray("Mode:")} ${chalk.magenta("Agent (Code Generator)")}\n` +
-    `${chalk.cyan("Output Directory:")} ${outputDir}`,
-    {
-      padding: 1,
-      margin: { top: 1, bottom: 1 },
-      borderStyle: "round",
-      borderColor: "magenta",
-      title: "🤖 Agent Mode",
-      titleAlignment: "center",
-    }
+
+  console.log(
+    chalk.hex('#22d3ee').bold('orbit α') +
+    chalk.hex('#374151')(' │ ') +
+    chalk.hex('#c084fc')('agent') +
+    chalk.hex('#374151')(' │ ') +
+    chalk.hex('#6b7280')(conversation.id.slice(0, 8)) +
+    chalk.hex('#374151')(' │ ') +
+    chalk.hex('#4ade80')(outputDir)
   );
-  
-  console.log(conversationInfo);
-  
+  console.log(chalk.hex('#1e2230')('─'.repeat(60)));
+  console.log('');
+
   return conversation;
 }
 
@@ -65,31 +58,16 @@ async function saveMessage(conversationId, role, content) {
 }
 
 async function agentLoop(conversation, outputDir) {
-  const helpBox = boxen(
-    `${chalk.cyan.bold("What can the agent do?")}\n\n` +
-    `${chalk.gray('• Generate complete applications from descriptions')}\n` +
-    `${chalk.gray('• Create all necessary files and folders')}\n` +
-    `${chalk.gray('• Include setup instructions and commands')}\n` +
-    `${chalk.gray('• Generate production-ready code')}\n\n` +
-    `${chalk.yellow.bold("Examples:")}\n` +
-    `${chalk.white('• "Build a todo app with React and Tailwind"')}\n` +
-    `${chalk.white('• "Create a REST API with Express and MongoDB"')}\n` +
-    `${chalk.white('• "Make a weather app using OpenWeatherMap API"')}\n\n` +
-    `${chalk.gray('Type "exit" to end the session')}`,
-    {
-      padding: 1,
-      margin: { bottom: 1 },
-      borderStyle: "round",
-      borderColor: "cyan",
-      title: "💡 Agent Instructions",
-    }
+  console.log(
+    chalk.hex('#6b7280')(
+      'describe what you want to build  ·  "exit" to quit  ·  ctrl+c to force quit'
+    )
   );
-  
-  console.log(helpBox);
+  console.log('');
 
   while (true) {
     const userInput = await text({
-      message: chalk.magenta("🤖 What would you like to build?"),
+      message: chalk.hex('#38bdf8')('›'),
       placeholder: "Describe your application...",
       validate(value) {
         if (!value || value.trim().length === 0) {
@@ -102,30 +80,35 @@ async function agentLoop(conversation, outputDir) {
     });
 
     if (isCancel(userInput)) {
-      console.log(chalk.yellow("\n👋 Agent session cancelled\n"));
+      console.log('');
+      console.log(chalk.hex('#6b7280')('session cancelled'));
       process.exit(0);
     }
 
-    if (userInput.toLowerCase() === "exit") {
-      console.log(chalk.yellow("\n👋 Agent session ended\n"));
+    if (userInput.toLowerCase() === 'exit') {
+      console.log('');
+      console.log(chalk.hex('#6b7280')('session ended'));
       break;
     }
 
-    const userBox = boxen(chalk.white(userInput), {
-      padding: 1,
-      margin: { top: 1, bottom: 1 },
-      borderStyle: "round",
-      borderColor: "blue",
-      title: "👤 Your Request",
-      titleAlignment: "left",
-    });
-    console.log(userBox);
+    console.log('');
+    console.log(chalk.hex('#38bdf8').bold('you'));
+    console.log(
+      chalk.hex('#38bdf8')('│ ') +
+      chalk.hex('#e2e8f0')(userInput)
+    );
+    console.log('');
 
-    // Save user message
-    await saveMessage(conversation.id, "user", userInput);
+    await saveMessage(conversation.id, 'user', userInput);
 
     try {
-      // Generate application using structured output
+      console.log(chalk.hex('#c084fc').bold('orbit'));
+      console.log(
+        chalk.hex('#374151')('│ ') +
+        chalk.hex('#facc15')('generating application...')
+      );
+      console.log('');
+
       const result = await generateApplication(
         userInput,
         aiService,
@@ -133,83 +116,113 @@ async function agentLoop(conversation, outputDir) {
       );
 
       if (result && result.success) {
-        // Save successful generation details
-        const responseMessage = `Generated application: ${result.folderName}\n` +
+        const responseMessage =
+          `Generated application: ${result.folderName}\n` +
           `Files created: ${result.files.length}\n` +
           `Location: ${result.appDir}\n\n` +
           `Setup commands:\n${result.commands.join('\n')}`;
-        
-        await saveMessage(conversation.id, "assistant", responseMessage);
 
-        // Ask if user wants to generate another app
+        await saveMessage(conversation.id, 'assistant', responseMessage);
+
+        console.log(chalk.hex('#c084fc').bold('orbit'));
+        console.log(
+          chalk.hex('#374151')('│ ') +
+          chalk.hex('#4ade80')('application generated successfully')
+        );
+        console.log('');
+
+        console.log(
+          chalk.hex('#374151')('  ▸ ') +
+          chalk.hex('#6b7280')('name      ') +
+          chalk.hex('#f9fafb')(result.folderName)
+        );
+        console.log(
+          chalk.hex('#374151')('  ▸ ') +
+          chalk.hex('#6b7280')('location  ') +
+          chalk.hex('#22d3ee')(result.appDir)
+        );
+        console.log(
+          chalk.hex('#374151')('  ▸ ') +
+          chalk.hex('#6b7280')('files     ') +
+          chalk.hex('#f9fafb')(result.files.length + ' created')
+        );
+
+        if (result.commands && result.commands.length > 0) {
+          console.log('');
+          console.log(chalk.hex('#6b7280')('── setup commands ' + '─'.repeat(42)));
+          result.commands.forEach(cmd => {
+            console.log(
+              chalk.hex('#374151')('  $ ') +
+              chalk.hex('#22d3ee')(cmd)
+            );
+          });
+        }
+
+        console.log('');
+        console.log(chalk.hex('#1e2230')('─'.repeat(60)));
+        console.log('');
+
         const continuePrompt = await confirm({
-          message: chalk.cyan("Would you like to generate another application?"),
+          message: chalk.hex('#38bdf8')('generate another application?'),
           initialValue: false,
         });
 
         if (isCancel(continuePrompt) || !continuePrompt) {
-          console.log(chalk.yellow("\n👋 Great! Check your new application.\n"));
+          console.log('');
+          console.log(chalk.hex('#6b7280')('session ended'));
           break;
         }
 
+        console.log('');
+
       } else {
-        throw new Error("Generation returned no result");
+        throw new Error('Generation returned no result');
       }
 
     } catch (error) {
-      console.log(chalk.red(`\n❌ Error: ${error.message}\n`));
-      
+      console.log('');
+      console.log(chalk.hex('#f87171')('error: ' + error.message));
+      console.log('');
+
       await saveMessage(conversation.id, "assistant", `Error: ${error.message}`);
-      
+
       const retry = await confirm({
-        message: chalk.cyan("Would you like to try again?"),
+        message: chalk.hex('#38bdf8')('try again?'),
         initialValue: true,
       });
 
       if (isCancel(retry) || !retry) {
         break;
       }
+
+      console.log('');
     }
   }
 }
 
 export async function startAgentChat(conversationId = null, outputDir = process.cwd()) {
   try {
-    intro(
-      boxen(
-        chalk.bold.magenta("🤖 Orbit AI - Agent Mode\n\n") + 
-        chalk.gray("Autonomous Application Generator"),
-        {
-          padding: 1,
-          borderStyle: "double",
-          borderColor: "magenta",
-        }
-      )
-    );
-
     const user = await getUserFromToken();
-    
-    // Warning about file system access
+
+    console.log('');
     const shouldContinue = await confirm({
-      message: chalk.yellow(`⚠️  The agent will create files and folders in "${outputDir}". Continue?`),
+      message: chalk.hex('#facc15')(
+        'agent will create files in "' + outputDir + '" — continue?'
+      ),
       initialValue: true,
     });
 
     if (isCancel(shouldContinue) || !shouldContinue) {
-      cancel(chalk.yellow("Agent mode cancelled"));
+      console.log(chalk.hex('#6b7280')('agent mode cancelled'));
       return;
     }
-    
+
+    console.log('');
     const conversation = await initConversation(user.id, conversationId, outputDir);
     await agentLoop(conversation, outputDir);
-    
+
   } catch (error) {
-    const errorBox = boxen(chalk.red(`❌ Error: ${error.message}`), {
-      padding: 1,
-      margin: 1,
-      borderStyle: "round",
-      borderColor: "red",
-    });
-    console.log(errorBox);
+    console.log('');
+    console.log(chalk.hex('#f87171')('error: ' + error.message));
   }
 }
