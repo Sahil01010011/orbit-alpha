@@ -7,8 +7,10 @@
     "orbit": "./src/cli/main.js"
   },
   "scripts": {
+    "build": "node build.js",
+    "postbuild": "node -e \"import('fs').then(fs => { const f='dist/main.js'; const c=fs.readFileSync(f,'utf8'); if(!c.startsWith('#!/usr/bin/env node')){fs.writeFileSync(f,'#!/usr/bin/env node\\n'+c);} console.log('shebang added'); })\"",
     "dev": "nodemon src/index.js",
-    "start": "node src/index.js"
+    "start": "node dist/main.js"
   },
   "keywords": [],
   "author": "",
@@ -30,15 +32,19 @@
     "dotenv": "^17.2.3",
     "express": "^5.2.1",
     "figlet": "^1.9.4",
+    "ink": "^4.4.1",
+    "ink-text-input": "^5.0.1",
     "marked": "^15.0.12",
     "marked-terminal": "^7.3.0",
     "open": "^11.0.0",
     "openai": "latest",
     "pg": "^8.20.0",
+    "react": "^18.2.0",
     "yocto-spinner": "^1.0.0",
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "esbuild": "^0.20.0",
     "prisma": "^6.19.3"
   }
 }
