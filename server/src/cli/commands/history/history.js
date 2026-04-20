@@ -1,6 +1,5 @@
 import chalk from "chalk";
-import boxen from "boxen";
-import { select, confirm, isCancel, cancel, intro, outro } from "@clack/prompts";
+import { select, confirm, isCancel } from "@clack/prompts";
 import { Command } from "commander";
 import yoctoSpinner from "yocto-spinner";
 import { getStoredToken } from "../auth/login.js";
@@ -22,8 +21,6 @@ async function getUserFromToken() {
     throw new Error("Not authenticated. Please run 'orbit login' first.");
   }
 
-  const spinner = yoctoSpinner({ text: "Authenticating..." }).start();
-
   const user = await prisma.user.findFirst({
     where: {
       sessions: {
@@ -32,57 +29,24 @@ async function getUserFromToken() {
     },
   });
 
-  spinner.stop();
-
   if (!user) {
-    throw new Error("User not found. Please login again.");
+    throw new Error('User not found. Please login again.');
   }
 
   return user;
 }
 
-function formatDate(date) {
-  return new Date(date).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 export async function historyAction() {
   try {
-    intro(
-      boxen(chalk.bold.cyan("📜 Conversation History"), {
-        padding: 1,
-        borderStyle: "double",
-        borderColor: "cyan",
-      })
-    );
-
     const user = await getUserFromToken();
 
-    const spinner = yoctoSpinner({ text: "Loading conversations..." }).start();
+    const spinner = yoctoSpinner({
+      text: chalk.hex('#6b7280')('loading conversations...'),
+      color: 'yellow',
+    }).start();
     const conversations = await chatService.getUserConversations(user.id);
     spinner.stop();
 
-    if (conversations.length === 0) {
-      const emptyBox = boxen(
-        chalk.yellow("No conversations found.\nStart a new chat with: orbit wakeup"),
-        {
-          padding: 1,
-          margin: 1,
-          borderStyle: "round",
-          borderColor: "yellow",
-        }
-      );
-      console.log(emptyBox);
-      outro(chalk.gray("No history yet."));
-      return;
-    }
-
-    // Build select options — one per conversation, using the unique ID as value.
     const buildOptions = (convs) => {
       const seen = new Set();
       return convs
@@ -94,132 +58,190 @@ export async function historyAction() {
         })
         .map((c) => {
           const preview = c.messages?.[0]?.content
-            ? c.messages[0].content.slice(0, 60) + (c.messages[0].content.length > 60 ? "…" : "")
-            : "No messages";
-          const modeTag = chalk.gray(`[${c.mode}]`);
-          const date = chalk.gray(formatDate(c.updatedAt));
+            ? c.messages[0].content.slice(0, 55) +
+              (c.messages[0].content.length > 55 ? '...' : '')
+            : 'no messages';
+          const date = new Date(c.updatedAt).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+          });
+          const modeBadge =
+            c.mode === 'chat'
+              ? chalk.hex('#083344').bgHex('#083344')(
+                  chalk.hex('#22d3ee')(' chat ')
+                )
+              : c.mode === 'tool'
+              ? chalk.hex('#052e16').bgHex('#052e16')(
+                  chalk.hex('#4ade80')(' tool ')
+                )
+              : chalk.hex('#1e1b4b').bgHex('#1e1b4b')(
+                  chalk.hex('#a78bfa')(' agent ')
+                );
           return {
             value: c.id,
-            label: `${c.title || "Untitled"} ${modeTag}`,
-            hint: `${date} — ${preview}`,
+            label:
+              chalk.hex('#f9fafb')(
+                (c.title || 'Untitled').slice(0, 45) +
+                  ((c.title || 'Untitled').length > 45 ? '...' : '')
+              ) +
+              '  ' +
+              modeBadge,
+            hint:
+              chalk.hex('#6b7280')(date) +
+              chalk.hex('#374151')('  ·  ') +
+              chalk.hex('#6b7280')(preview),
           };
         });
     };
 
-    // Ask what the user wants to do
+    console.log(
+      chalk.hex('#22d3ee').bold('orbit α') +
+      chalk.hex('#374151')(' │ ') +
+      chalk.hex('#a78bfa')('history') +
+      chalk.hex('#374151')(' │ ') +
+      chalk.hex('#6b7280')(conversations.length + ' conversations')
+    );
+    console.log(chalk.hex('#1e2230')('─'.repeat(60)));
+    console.log('');
+
+    if (conversations.length === 0) {
+      console.log(chalk.hex('#facc15')('no conversations found'));
+      console.log(chalk.hex('#6b7280')('start a new chat with: orbit wakeup'));
+      console.log('');
+      return;
+    }
+
     const action = await select({
-      message: "What would you like to do?",
+      message: chalk.hex('#38bdf8')('what would you like to do?'),
       options: [
-        { value: "resume", label: "Resume a conversation" },
-        { value: "delete", label: "Delete a conversation" },
-        { value: BACK, label: "← Back to main menu" },
+        {
+          value: 'resume',
+          label: chalk.hex('#22d3ee')('resume a conversation'),
+          hint: 'continue where you left off',
+        },
+        {
+          value: 'delete',
+          label: chalk.hex('#f87171')('delete a conversation'),
+          hint: 'permanently remove a conversation',
+        },
+        {
+          value: BACK,
+          label: chalk.hex('#6b7280')('back to main menu'),
+        },
       ],
     });
 
-    if (isCancel(action)) {
-      cancel(chalk.yellow("Cancelled"));
+    if (isCancel(action) || action === BACK) {
       return;
     }
 
-    if (action === BACK) {
-      return;
-    }
-
-    if (action === "delete") {
-      // Show conversation list for deletion with a back option
+    if (action === 'delete') {
       const deleteOptions = [
         ...buildOptions(conversations),
-        { value: BACK, label: "← Back to main menu" },
+        { value: BACK, label: chalk.hex('#6b7280')('cancel — back to menu') },
       ];
+
       const toDelete = await select({
-        message: "Select a conversation to delete:",
+        message: chalk.hex('#f87171')('select a conversation to delete:'),
         options: deleteOptions,
       });
 
-      if (isCancel(toDelete)) {
-        cancel(chalk.yellow("Cancelled"));
-        return;
-      }
-
-      if (toDelete === BACK) {
+      if (isCancel(toDelete) || toDelete === BACK) {
         return;
       }
 
       const conversation = conversations.find((c) => c.id === toDelete);
-      const name = conversation?.title || "Untitled";
+      const name = (conversation?.title || 'Untitled').slice(0, 50);
 
-      // Confirmation prompt
+      console.log('');
+      console.log(chalk.hex('#374151')('── selected ' + '─'.repeat(48)));
+      console.log(
+        chalk.hex('#374151')('  ▸ ') +
+        chalk.hex('#f9fafb')(name)
+      );
+      console.log('');
+      console.log(
+        chalk.hex('#3d1515')('  ! ') +
+        chalk.hex('#f87171').bold('this action cannot be undone')
+      );
+      console.log(
+        chalk.hex('#6b7280')(
+          '    all messages in this conversation will be permanently deleted'
+        )
+      );
+      console.log('');
+
       const confirmed = await confirm({
-        message: `Are you sure you want to delete ${chalk.bold(name)}? ${chalk.red("This cannot be undone.")}`,
+        message: chalk.hex('#f87171')('delete "' + name + '"?'),
         initialValue: false,
       });
 
       if (isCancel(confirmed) || !confirmed) {
-        cancel(chalk.yellow("Cancelled"));
+        console.log('');
+        console.log(chalk.hex('#6b7280')('cancelled — conversation kept'));
+        console.log('');
         return;
       }
 
-      // Delete using the service
-      const deleteSpinner = yoctoSpinner({ text: "Deleting conversation..." }).start();
+      const deleteSpinner = yoctoSpinner({
+        text: chalk.hex('#6b7280')('deleting...'),
+        color: 'yellow',
+      }).start();
       await chatService.deleteConversation(toDelete, user.id);
       deleteSpinner.stop();
 
-      console.log(
-        chalk.green(`\n✅ Conversation "${name}" has been deleted.\n`)
-      );
+      console.log('');
+      console.log(chalk.hex('#4ade80')('deleted  ·  "' + name + '"'));
+      console.log('');
       return;
     }
 
-    // action === "resume"
     const resumeOptions = [
       ...buildOptions(conversations),
-      { value: BACK, label: "← Back to main menu" },
+      { value: BACK, label: chalk.hex('#6b7280')('cancel — back to menu') },
     ];
+
     const selected = await select({
-      message: "Select a conversation to resume:",
+      message: chalk.hex('#38bdf8')('select a conversation to resume:'),
       options: resumeOptions,
     });
 
-    if (isCancel(selected)) {
-      cancel(chalk.yellow("Cancelled"));
+    if (isCancel(selected) || selected === BACK) {
       return;
     }
 
-    if (selected === BACK) {
-      return;
-    }
-
-    // Find the selected conversation to get its mode
     const conversation = conversations.find((c) => c.id === selected);
+    const name = conversation?.title || 'Untitled';
 
+    console.log('');
     console.log(
-      chalk.green(`\n▶  Resuming: ${conversation.title || "Untitled"}\n`)
+      chalk.hex('#4ade80')('resuming  ·  ') +
+      chalk.hex('#f9fafb')(name)
     );
+    console.log('');
 
-    // Resume in the correct mode, passing the conversation ID so history is loaded
     switch (conversation.mode) {
-      case "tool":
+      case 'tool':
         await startToolChat(selected);
         break;
-      case "agent":
+      case 'agent':
         await startAgentChat(selected);
         break;
-      case "chat":
+      case 'chat':
       default:
         await startChat(conversation.mode, selected);
         break;
     }
 
-    outro(chalk.green("✨ Session ended."));
+    console.log('');
+    console.log(chalk.hex('#6b7280')('session ended'));
+    console.log('');
   } catch (error) {
-    const errorBox = boxen(chalk.red(`❌ Error: ${error.message}`), {
-      padding: 1,
-      margin: 1,
-      borderStyle: "round",
-      borderColor: "red",
-    });
-    console.log(errorBox);
-    // Do not call process.exit so the main menu loop can continue.
+    console.log('');
+    console.log(chalk.hex('#f87171')('error: ' + error.message));
+    console.log('');
   }
 }
 
