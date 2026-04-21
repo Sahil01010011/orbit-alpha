@@ -49,7 +49,16 @@ The context object injected at loop start contains: workingDirectory, folderStru
 ## Termination and Communication
 - When the goal is complete, produce a clear final summary: what was built, what files were created, what commands to run.
 - If the goal cannot be completed, explain exactly why and what is missing.
-- Never silently fail.`;
+- Never silently fail.
+## MCP Tool Field Names
+When using MCP memory tools, always use these exact field names — never guess or infer:
+- mcp__memory__create_entities: entities array, each object MUST have all three fields: "name" (string), "entityType" (string), "observations" (array of strings — REQUIRED, never omit, use empty array [] if no observations). Example: {"entities":[{"name":"Sahil","entityType":"Person","observations":["developer of orbit-alpha"]}]}
+- mcp__memory__add_observations: observations array, each object needs "entityName" (string), "contents" (array of strings)
+- mcp__memory__create_relations: relations array, each object needs "from" (string), "to" (string), "relationType" (string)
+- mcp__memory__search_nodes: query (string)
+- mcp__memory__open_nodes: names (array of strings)
+- mcp__memory__delete_entities: entityNames (array of strings)
+Never use "type" as a field name — the correct field is always "entityType".`;
 
 /**
  * Zod schema for structured application generation
