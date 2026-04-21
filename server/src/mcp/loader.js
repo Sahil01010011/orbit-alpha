@@ -9,20 +9,40 @@ import { connectMcpServer } from './client.js';
  * Returns null if file not found.
  */
 async function loadMcpConfig(directory) {
-  const configPath = resolve(directory, '.orbit-mcp.json');
-  if (!existsSync(configPath)) return null;
+  let current = resolve(directory);
 
-  try {
-    const raw = await readFile(configPath, 'utf-8');
-    return JSON.parse(raw);
-  } catch (error) {
-    console.log(
-      chalk.hex('#facc15')(
-        'mcp  ·  failed to parse .orbit-mcp.json: ' + error.message
-      )
-    );
-    return null;
+  for (let i = 0; i < 10; i++) {
+    const configPath = resolve(current, '.orbit-mcp.json');
+    if (existsSync(configPath)) {
+      try {
+        const raw = await readFile(configPath, 'utf-8');
+        return JSON.parse(raw);
+      } catch (error) {
+        console.log(
+          chalk.hex('#facc15')(
+            'mcp  ·  failed to parse .orbit-mcp.json: ' + error.message
+          )
+        );
+        return null;
+      }
+    }
+    const parent = resolve(current, '..');
+    if (parent === current) break;
+    current = parent;
   }
+  // Fallback: ~/.orbit/mcp.json
+  const { homedir } = await import('os');
+  const globalConfig = resolve(homedir(), '.orbit', 'mcp.json');
+  if (existsSync(globalConfig)) {
+    try {
+      const raw = await readFile(globalConfig, 'utf-8');
+      return JSON.parse(raw);
+    } catch (error) {
+      console.log(chalk.hex('#facc15')('mcp  ·  failed to parse ~/.orbit/mcp.json: ' + error.message));
+    }
+  }
+
+  return null;
 }
 
 /**

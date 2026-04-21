@@ -2,32 +2,38 @@ import { z } from 'zod';
 
 const MAX_DESCRIPTION_LENGTH = 1000;
 
-/**
- * Normalize a tool name to match ^[a-zA-Z0-9_-]{1,64}$
- * Replaces invalid characters with underscores.
- */
 export function normalizeToolName(serverName, toolName) {
   const normalized = toolName.replace(/[^a-zA-Z0-9_-]/g, '_');
   const full = `mcp__${serverName}__${normalized}`;
   return full.slice(0, 64);
 }
 
-/**
- * Convert an MCP tool definition into Orbit registry format.
- * @param {string} serverName
- * @param {object} mcpTool - Tool definition from tools/list response
- * @param {Function} callFn - Async function(toolName, args) that calls the MCP server
- * @returns {{ name: string, description: string, parameters: import('zod').ZodTypeAny, execute: Function }}
- */
+function jsonSchemaToZod(schema) {
+  if (!schema || !schema.properties) {
+    return z.object({}).passthrough();
+  }
+  const shape = {};
+  for (const [key, prop] of Object.entries(schema.properties)) {
+    const required = schema.required?.includes(key) ?? false;
+    let field;
+    if (prop.type === 'string') field = z.string();
+    else if (prop.type === 'number') field = z.number();
+    else if (prop.type === 'boolean') field = z.boolean();
+    else if (prop.type === 'array') field = z.array(z.any());
+    else field = z.any();
+    if (prop.description) field = field.describe(prop.description);
+    shape[key] = required ? field : field.optional();
+  }
+  return z.object(shape);
+}
+
 export function wrapMcpTool(serverName, mcpTool, callFn) {
   const name = normalizeToolName(serverName, mcpTool.name);
 
   const description = (mcpTool.description || 'MCP tool')
     .slice(0, MAX_DESCRIPTION_LENGTH);
 
-  // Convert JSON Schema to a permissive Zod schema.
-  // We accept any object and let the MCP server validate.
-  const parameters = z.object({}).passthrough().describe(description);
+  const parameters = jsonSchemaToZod(mcpTool.inputSchema);
 
   const execute = async (args) => {
     try {
