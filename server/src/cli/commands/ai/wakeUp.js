@@ -15,6 +15,8 @@ import { startAgentChat } from "../../chat/chat-with-ai-agent.js";
 import { startIterativeAgentChat } from "../../chat/chat-with-ai-iterative.js";
 import { ChatService } from "../../../service/chat.service.js";
 import { historyAction } from "../history/history.js";
+import { loadMcpTools } from "../../../mcp/loader.js";
+import { injectMcpTools, refreshAvailableTools } from "../../../config/tool.config.js";
 
 const chatService = new ChatService();
 
@@ -227,6 +229,19 @@ const wakeUpAction = async (options, invocationDir) => {
 
   console.log(chalk.hex('#4ade80')('  welcome back, ' + user.name));
   console.log('');
+
+  // Load MCP tools from .orbit-mcp.json if present
+  const mcpTools = await loadMcpTools(invocationDir);
+  if (mcpTools.length > 0) {
+    const count = injectMcpTools(mcpTools);
+    refreshAvailableTools();
+    if (count > 0) {
+      console.log(
+        chalk.hex('#4ade80')('  ' + count + ' mcp tools available')
+      );
+      console.log('');
+    }
+  }
 
   await selectModelProvider();
 
