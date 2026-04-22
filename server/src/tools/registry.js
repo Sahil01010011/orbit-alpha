@@ -1,5 +1,15 @@
 import { tool } from "ai";
 
+const MAX_TOOL_RESULT_TOKENS = 8000; // ~6000 words, safe for all providers
+const TRUNCATION_NOTICE = '\n\n[...result truncated to save context. Use more specific queries to get focused results...]';
+
+function truncateToolResult(str) {
+  // Rough token estimate: 1 token ≈ 4 characters
+  const maxChars = MAX_TOOL_RESULT_TOKENS * 4;
+  if (str.length <= maxChars) return str;
+  return str.slice(0, maxChars) + TRUNCATION_NOTICE;
+}
+
 // Central in-memory registry: Map<name, { description, parameters, execute }>
 const _registry = new Map();
 
@@ -29,7 +39,10 @@ export function getTool(name) {
  * @returns {Array<{ name: string, description: string, parameters: import('zod').ZodTypeAny, execute: Function }>}
  */
 export function getAllTools() {
-  return Array.from(_registry.entries()).map(([name, def]) => ({ name, ...def }));
+  return Array.from(_registry.entries()).map(([name, def]) => ({
+    name,
+    ...def,
+  }));
 }
 
 /**
@@ -48,7 +61,9 @@ export function getToolSchemas(context = {}) {
       parameters: def.parameters,
       execute: async (args) => {
         const result = await def.execute(args, context);
-        return typeof result === "string" ? result : JSON.stringify(result);
+        const str =
+          typeof result === "string" ? result : JSON.stringify(result);
+        return truncateToolResult(str);
       },
     });
   }
