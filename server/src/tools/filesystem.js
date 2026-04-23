@@ -4,16 +4,21 @@ import { z } from "zod";
 import { registerTool } from "./registry.js";
 import { resolvePath } from "./utils.js";
 
+function resolveWithContext(filePath, context) {
+  const base = context?.outputDirectory || process.cwd();
+  return path.isAbsolute(filePath) ? filePath : resolvePath(base, filePath);
+}
+
 // ─── read_file ────────────────────────────────────────────────────────────────
 
 registerTool("read_file", {
-  description: "Read and return the text content of a file at a given absolute path.",
+  description: "Read and return the text content of a file. Accepts absolute or relative paths.",
   parameters: z.object({
-    file_path: z.string().describe("Absolute path to the file to read"),
+    file_path: z.string().describe("Absolute or relative path to the file to read"),
   }),
-  execute: async ({ file_path }) => {
+  execute: async ({ file_path }, context) => {
     try {
-      const resolved = resolvePath(file_path);
+      const resolved = resolveWithContext(file_path, context);
       const content = await fs.readFile(resolved, "utf-8");
       return { success: true, result: content };
     } catch (err) {
@@ -26,15 +31,15 @@ registerTool("read_file", {
 
 registerTool("write_file", {
   description:
-    "Write string content to a file at a given absolute path. " +
+    "Write string content to a file. Accepts absolute or relative paths. " +
     "Parent directories are created automatically if they do not exist.",
   parameters: z.object({
-    file_path: z.string().describe("Absolute path to the file to write"),
+    file_path: z.string().describe("Absolute or relative path to the file to write"),
     content: z.string().describe("Text content to write to the file"),
   }),
-  execute: async ({ file_path, content }) => {
+  execute: async ({ file_path, content }, context) => {
     try {
-      const resolved = resolvePath(file_path);
+      const resolved = resolveWithContext(file_path, context);
       await fs.mkdir(path.dirname(resolved), { recursive: true });
       await fs.writeFile(resolved, content, "utf-8");
       return { success: true, result: `File written successfully: ${resolved}` };
@@ -47,13 +52,13 @@ registerTool("write_file", {
 // ─── delete_file ──────────────────────────────────────────────────────────────
 
 registerTool("delete_file", {
-  description: "Delete a file at a given absolute path.",
+  description: "Delete a file. Accepts absolute or relative paths.",
   parameters: z.object({
-    file_path: z.string().describe("Absolute path to the file to delete"),
+    file_path: z.string().describe("Absolute or relative path to the file to delete"),
   }),
-  execute: async ({ file_path }) => {
+  execute: async ({ file_path }, context) => {
     try {
-      const resolved = resolvePath(file_path);
+      const resolved = resolveWithContext(file_path, context);
       await fs.unlink(resolved);
       return { success: true, result: `File deleted: ${resolved}` };
     } catch (err) {
@@ -65,15 +70,15 @@ registerTool("delete_file", {
 // ─── move_file ────────────────────────────────────────────────────────────────
 
 registerTool("move_file", {
-  description: "Move or rename a file from a source path to a destination path.",
+  description: "Move or rename a file. Accepts absolute or relative paths.",
   parameters: z.object({
-    source_path: z.string().describe("Absolute path to the source file"),
-    destination_path: z.string().describe("Absolute path to the destination"),
+    source_path: z.string().describe("Absolute or relative path to the source file"),
+    destination_path: z.string().describe("Absolute or relative path to the destination"),
   }),
-  execute: async ({ source_path, destination_path }) => {
+  execute: async ({ source_path, destination_path }, context) => {
     try {
-      const resolvedSrc = resolvePath(source_path);
-      const resolvedDst = resolvePath(destination_path);
+      const resolvedSrc = resolveWithContext(source_path, context);
+      const resolvedDst = resolveWithContext(destination_path, context);
       await fs.mkdir(path.dirname(resolvedDst), { recursive: true });
       await fs.rename(resolvedSrc, resolvedDst);
       return {
@@ -91,9 +96,9 @@ registerTool("move_file", {
 registerTool("search_files", {
   description:
     "Search within a directory for files matching a name pattern or containing a specific string. " +
-    "Returns matching file paths.",
+    "Returns matching file paths. Accepts absolute or relative paths.",
   parameters: z.object({
-    directory: z.string().describe("Absolute path to the directory to search in"),
+    directory: z.string().describe("Absolute or relative path to the directory to search in"),
     name_pattern: z
       .string()
       .optional()
@@ -103,10 +108,10 @@ registerTool("search_files", {
       .optional()
       .describe("String to search for inside file contents"),
   }),
-  execute: async ({ directory, name_pattern, content_search }) => {
+  execute: async ({ directory, name_pattern, content_search }, context) => {
     try {
       const matches = [];
-      const resolvedDir = resolvePath(directory);
+      const resolvedDir = resolveWithContext(directory, context);
 
       async function walk(dir) {
         let entries;
@@ -118,11 +123,10 @@ registerTool("search_files", {
         for (const entry of entries) {
           const fullPath = path.join(dir, entry.name);
           if (entry.isDirectory()) {
-            if (!["node_modules", ".git", "dist", "build"].includes(entry.name)) {
+            if (!["node_modules", ".git", "dist", "build", "__pycache__"].includes(entry.name)) {
               await walk(fullPath);
             }
           } else {
-            // Name pattern match
             const nameMatches = name_pattern
               ? matchGlob(entry.name, name_pattern)
               : true;
@@ -159,14 +163,7 @@ registerTool("search_files", {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-/**
- * Minimal glob pattern matcher (supports * and ? wildcards).
- * @param {string} filename
- * @param {string} pattern
- * @returns {boolean}
- */
 function matchGlob(filename, pattern) {
-  // Escape regex special chars except * and ?
   const escaped = pattern
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
     .replace(/\*/g, ".*")

@@ -4,21 +4,26 @@ import { z } from "zod";
 import { registerTool } from "./registry.js";
 import { resolvePath } from "./utils.js";
 
-const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build"]);
+const SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "__pycache__"]);
 const TREE_MAX_DEPTH = 4;
+
+function resolveWithContext(dirPath, context) {
+  const base = context?.outputDirectory || process.cwd();
+  return path.isAbsolute(dirPath) ? dirPath : resolvePath(base, dirPath);
+}
 
 // ─── create_directory ─────────────────────────────────────────────────────────
 
 registerTool("create_directory", {
   description:
-    "Create a directory at the given absolute path. " +
+    "Create a directory. Accepts absolute or relative paths. " +
     "All necessary parent directories are created automatically.",
   parameters: z.object({
-    dir_path: z.string().describe("Absolute path of the directory to create"),
+    dir_path: z.string().describe("Absolute or relative path of the directory to create"),
   }),
-  execute: async ({ dir_path }) => {
+  execute: async ({ dir_path }, context) => {
     try {
-      const resolved = resolvePath(dir_path);
+      const resolved = resolveWithContext(dir_path, context);
       await fs.mkdir(resolved, { recursive: true });
       return { success: true, result: `Directory created: ${resolved}` };
     } catch (err) {
@@ -31,13 +36,14 @@ registerTool("create_directory", {
 
 registerTool("list_directory", {
   description:
-    "List the contents of a directory. Returns each entry with name, type (file or directory), and size in bytes.",
+    "List the contents of a directory. Accepts absolute or relative paths. " +
+    "Returns each entry with name, type (file or directory), and size in bytes.",
   parameters: z.object({
-    dir_path: z.string().describe("Absolute path of the directory to list"),
+    dir_path: z.string().describe("Absolute or relative path of the directory to list"),
   }),
-  execute: async ({ dir_path }) => {
+  execute: async ({ dir_path }, context) => {
     try {
-      const resolved = resolvePath(dir_path);
+      const resolved = resolveWithContext(dir_path, context);
       const entries = await fs.readdir(resolved, { withFileTypes: true });
 
       const result = await Promise.all(
@@ -70,13 +76,14 @@ registerTool("list_directory", {
 registerTool("directory_tree", {
   description:
     "Return a recursive tree of a directory up to 4 levels deep as a formatted string. " +
-    "Skips node_modules, .git, dist, and build directories.",
+    "Accepts absolute or relative paths. " +
+    "Skips node_modules, .git, dist, build, and __pycache__ directories.",
   parameters: z.object({
-    dir_path: z.string().describe("Absolute path of the root directory"),
+    dir_path: z.string().describe("Absolute or relative path of the root directory"),
   }),
-  execute: async ({ dir_path }) => {
+  execute: async ({ dir_path }, context) => {
     try {
-      const resolved = resolvePath(dir_path);
+      const resolved = resolveWithContext(dir_path, context);
       const lines = [resolved];
       await buildTree(resolved, "", 0, lines);
       return { success: true, result: lines.join("\n") };
@@ -98,7 +105,6 @@ async function buildTree(dirPath, prefix, depth, lines) {
     return;
   }
 
-  // Sort: directories first, then files, both alphabetically
   entries.sort((a, b) => {
     if (a.isDirectory() !== b.isDirectory()) {
       return a.isDirectory() ? -1 : 1;
