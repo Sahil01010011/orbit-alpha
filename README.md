@@ -1,159 +1,117 @@
-# Orbital CLI
+
+![Orbit Alpha TUI](./assets/orbit-banner.png)
+
+# Orbit Alpha
 
 > An autonomous AI developer agent that lives in your terminal
 
-![Node.js](https://img.shields.io/badge/Node.js-18%2B-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue) ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Mac%20%7C%20Linux-lightgrey)
+![Node.js](https://img.shields.io/badge/Node.js-18%2B-brightgreen) ![License](https://img.shields.io/badge/license-MIT-blue) ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Mac%20%7C%20Linux-lightgrey) ![MCP](https://img.shields.io/badge/MCP-enabled-purple) ![Tools](https://img.shields.io/badge/tools-82%2B-cyan)
 
 ---
 
-## What is Orbital CLI?
+## What is Orbit?
 
-Orbital CLI is an AI-powered developer agent that runs entirely inside your terminal. You can have a multi-turn conversation with it, ask it to write code, or give it a larger goal — like "build me a REST API" — and watch it plan the work, create the files, and explain every step as it goes.
+Orbit is an autonomous AI developer agent that runs entirely inside your terminal. Give it a high-level goal — like "analyze this codebase and add authentication" — and it plans the work, reads your existing files, writes code that fits your project structure, executes shell commands, commits to Git, and explains every decision as it goes.
 
-Orbital is for developers who want AI help without leaving the command line. You do not need a browser tab, a chat box, or copy-pasting. When you run `orbit wakeup`, Orbital reads your existing project files so it already knows what you have built. It then generates or modifies code that fits naturally into your project — not generic snippets that clash with your structure.
+Orbit is not a chatbot with a terminal wrapper. It is a working agent that takes real actions inside your project. It reads your codebase before acting. It plans before it writes. After each step it reflects on whether the goal was actually advanced before deciding what to do next.
 
-The key difference from using ChatGPT or Claude in a browser is that Orbital takes real actions. It can create files, run shell commands, install packages, commit to Git, and inspect your directory — all from inside your terminal, using your own project as context. It is not a conversation partner; it is a working agent.
+The core loop is: **goal → plan → act → observe → reflect → repeat**
 
 ---
 
-## What is working
+## What makes Orbit different
 
-- **GitHub OAuth authentication** — Secure login with your GitHub account. No passwords or API tokens to manage on the client side.
-- **AI Chat mode** — Multi-turn conversation with an AI that knows your project. Ask questions, get explanations, request code snippets, and keep the context going across multiple messages.
-- **Tool Calling mode** — Explicitly invoke any of the 32 registered developer tools. Useful when you want direct, predictable tool execution rather than a full conversation.
-- **All 32 tools working in Tool Calling mode** — Full tool set is available and executes correctly.
-- **Web search via Tavily API** — Use the `web_search` tool to retrieve current web results.
-- **URL content fetching** — Use the `fetch_url` tool to retrieve and read page content.
-- **Web tools in Tool Calling and Agentic modes** — Both `web_search` and `fetch_url` are available in Tool Calling and Agentic workflows.
-- **Multi-language support** — Python (pip/poetry/pipenv), Rust (cargo), Go (go mod), Ruby (gem/bundle).
-- **Browser automation via PinchTab** — `browser_navigate`, `browser_snapshot`, `browser_click`, `browser_fill`, `browser_extract_text`.
-- **Automatic language detection** — Context reader detects Python, Rust, Go, and Ruby projects from project files.
-- **32 tools total across 7 tool files** — Full tool set available in Tool Calling and Agentic workflows.
-- **Agent loop hardening** — Circuit breakers, context compression, orphan guard, and typed terminal exits.
-- **Multi-model support** — Gemini, Claude Sonnet 3.5, and GPT-4o selectable at startup.
-- **Model selection menu** — Choose the active provider at `orbit wakeup` startup.
-- **Automatic Gemini fallback** — Missing provider API keys fall back to Gemini with a warning.
-- **Iterative Agentic mode** — Give the agent a goal. It creates a plan, works through each step, observes the result, and adjusts before continuing. The loop runs up to 10 steps automatically.
-- **Conversation history** — Every session is saved to the database and can be resumed at any time. Your context is never lost.
-- **Conversation deletion** — Remove old or unwanted sessions cleanly from the history menu.
-- **Project context awareness** — Before acting, Orbital scans your project directory, reads `package.json`, detects your framework, and injects that context into the agent's working memory.
-- **Global CLI** — Install once with `npm install -g .` and run `orbit` from any directory on your machine.
-- **Output directory control** — When generating files, Orbital asks you where to write them. Generated files always land where you tell them to — never mixed into the Orbital source code.
-- **Persistent loop** — The CLI stays open and returns you to the main menu after each session. You choose when to exit.
-- **Back navigation** — Every submenu has a back option so you are never stuck.
+- **MCP-powered** — Connect any MCP-compatible tool server. Orbit ships with filesystem, memory, sequential thinking, and GitHub integrations out of the box. Add any community MCP server with two lines of config.
+- **Persistent memory** — Orbit remembers facts, architectural decisions, and project knowledge across sessions via the MCP memory server. Ask it about a project it analyzed last week — it knows.
+- **Multi-model** — Switch between Gemini 2.5 Flash, Claude Sonnet 3.5, and GPT-4o at startup. Automatic fallback to Gemini if a provider key is missing.
+- **82+ tools** — 32 built-in developer tools plus 50+ MCP tools available in every mode.
+- **True autonomy** — The iterative agent runs up to 10 steps automatically. It retries failed steps, compresses context when the window fills, and guards against orphaned tool calls.
+- **Project-aware** — Reads your stack before acting. Detects Node.js, Python, Rust, Go, and Ruby projects. Never generates code that clashes with your existing dependencies.
+
+---
+
+## Capabilities
+
+### Built-in Tools (32)
+
+| Category | Tools |
+|----------|-------|
+| File system | read_file, write_file, delete_file, move_file, search_files |
+| Directory | create_directory, list_directory, directory_tree |
+| Shell | execute_shell |
+| Git | git_init, git_status, git_add, git_commit, git_diff, git_log |
+| Package manager | detect_package_manager, install_dependencies, add_dependency, remove_dependency, read_package_json, update_package_json |
+| Web | web_search (Tavily), fetch_url |
+| Multi-language | run_python, run_cargo, run_go, run_ruby |
+| Browser | browser_navigate, browser_snapshot, browser_click, browser_fill, browser_extract_text (PinchTab) |
+
+### MCP Tools (50+)
+
+| Server | Tools | Capabilities |
+|--------|-------|-------------|
+| filesystem | 14 | Read, write, search, tree via MCP protocol |
+| memory | 9 | Persistent cross-session knowledge graph |
+| sequential-thinking | 1 | Structured multi-step reasoning scratchpad |
+| github | 26 | Repos, issues, PRs, code search, releases |
+
+### Modes
+
+- **Chat** — Multi-turn conversation with full project context
+- **Tool Calling** — Direct tool invocation with activity display
+- **Agent** — One-shot application generator with structured output
+- **Iterative Agent** — Goal → plan → act → reflect loop, up to 10 steps, with all 82+ tools available automatically
 
 ---
 
 ## Prerequisites
 
-Before you start, make sure you have the following installed and ready:
-
-- **Node.js 18 or higher** — [nodejs.org](https://nodejs.org)
-- **PostgreSQL database** — Install locally, or use a free hosted database at [neon.tech](https://neon.tech) (no local install required)
-- **GitHub account** — Used for OAuth login
-- **Google Gemini API key** — Free tier available at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
-- **Git** — Must be installed and available in your terminal
+- Node.js 18 or higher — [nodejs.org](https://nodejs.org)
+- PostgreSQL database — free hosted option at [neon.tech](https://neon.tech)
+- GitHub account — used for OAuth login
+- Google Gemini API key — free tier at [aistudio.google.com](https://aistudio.google.com/apikey)
+- Git installed and available in your terminal
 
 ---
 
-## How to run locally
+## Installation
 
-Follow these steps in order. Each step builds on the previous one.
-
-### Step 1 — Clone the repository
+### 1. Clone the repository
 
 ```bash
 git clone https://github.com/Sahil01010011/orbit-alpha
 cd orbit-alpha
 ```
 
-### Step 2 — Install server dependencies
+### 2. Install dependencies
 
 ```bash
-cd server
-npm install
-cd ..
+cd server && npm install && cd ..
 ```
 
-This downloads all the packages the backend needs. It may take a minute.
-
-### Step 3 — Install client dependencies
-
-The client handles the GitHub OAuth login flow. It must be running alongside the server.
-
-```bash
-cd client
-npm install
-cd ..
-```
-
-### Step 4 — Configure environment variables
-
-Environment variables are settings the app reads at startup — database addresses, API keys, and secrets. They live in a `.env` file that you create locally and never commit to Git.
+### 3. Configure environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-Open `.env` in any text editor and fill in every value:
+Open `.env` and fill in all values:
 
-```
-# The port number the Express backend listens on.
-# Leave as 3000 unless something else is already using that port.
-PORT=3000
-
-# Your PostgreSQL connection string.
-# Get a free database at https://neon.tech — no local install needed.
-# Format: postgresql://USER:PASSWORD@HOST/DATABASE
+```env
+PORT=3005
 DATABASE_URL="postgresql://user:password@host/dbname"
-
-# A long random secret used to sign authentication tokens.
-# Keep this value private — treat it like a password.
-# Generate one with: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
-BETTER_AUTH_SECRET="replace-this-with-a-long-random-string"
-
-# The full URL where your backend server is running.
-# Use http://localhost:3000 for local development.
-BETTER_AUTH_URL="http://localhost:3000"
-
-# Your GitHub OAuth App credentials.
-# Create an OAuth App at https://github.com/settings/developers
-#   Homepage URL: http://localhost:3000
-#   Authorization callback URL: http://localhost:3000/api/auth/callback/github
-GITHUB_CLIENT_ID="your-github-oauth-app-client-id"
-GITHUB_CLIENT_SECRET="your-github-oauth-app-client-secret"
-
-# Your Google Gemini API key.
-# Get a free key at https://aistudio.google.com
-GOOGLE_GENERATIVE_AI_API_KEY="your-google-gemini-api-key"
-
-# Your Anthropic API key (Claude Sonnet 3.5).
+BETTER_AUTH_SECRET="your-long-random-secret"
+BETTER_AUTH_URL="http://localhost:3005"
+GITHUB_CLIENT_ID="your-github-oauth-client-id"
+GITHUB_CLIENT_SECRET="your-github-oauth-client-secret"
+GOOGLE_GENERATIVE_AI_API_KEY="your-gemini-api-key"
 ANTHROPIC_API_KEY="your-anthropic-api-key"
-
-# Your OpenAI API key (GPT-4o).
 OPENAI_API_KEY="your-openai-api-key"
-
-# Your Tavily API key for web search and URL fetching tools.
 TAVILY_API_KEY="your-tavily-api-key"
-
-# (Optional) PinchTab browser automation server URL.
 PINCHTAB_URL=http://localhost:9867
-
-# (Optional) PinchTab bearer token from `pinchtab config token`.
-PINCHTAB_TOKEN=your_pinchtab_bearer_token
-
-# (Optional) Select the model provider: gemini, claude, openai.
-# Leave blank to use the default: gemini
-ORBITAL_MODEL_PROVIDER=""
-
-# (Optional) The Gemini model to use.
-# Leave blank to use the default: gemini-2.5-flash
-ORBITAI_MODEL=""
+PINCHTAB_TOKEN=your_pinchtab_token
 ```
 
-### Step 5 — Set up the database
-
-This creates the tables Orbital needs to store users, conversations, and messages.
+### 4. Set up the database
 
 ```bash
 cd server
@@ -162,325 +120,219 @@ npx prisma generate
 cd ..
 ```
 
-### Step 6 — Start the server
+### 5. Start the server (first login only)
 
 ```bash
-cd server
-npm run dev
+cd server && npm run dev
 ```
 
-Keep this terminal open for the initial GitHub OAuth login. After you authenticate once, the CLI can run without the server.
+Keep this running for the initial GitHub OAuth login. After authenticating once the CLI runs standalone.
 
-### Step 7 — Install the CLI globally
-
-Open a **new terminal window** and navigate to the `orbit-alpha` root directory:
+### 6. Install the CLI globally
 
 ```bash
-cd path/to/orbit-alpha
 npm install -g .
 ```
 
-This makes the `orbit` command available everywhere on your machine.
-
-### Step 8 — Run from anywhere
+### 7. Run
 
 ```bash
 orbit wakeup
 ```
 
-You should see the Orbital welcome screen. You are ready to go.
+---
 
-## Browser Automation (Optional)
+## MCP Configuration
 
-Browser tools require PinchTab running separately.
+Orbit supports the Model Context Protocol for connecting external tool servers.
 
-Install PinchTab:
+### Project-level config
 
-```bash
-npm install -g pinchtab
+Create `.orbit-mcp.json` in your project root:
+
+```json
+{
+  "servers": [
+    {
+      "name": "filesystem",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "."]
+    }
+  ]
+}
 ```
 
-Start PinchTab (keep terminal open):
+### Global config
 
-```bash
-pinchtab
+Create `~/.orbit/mcp.json` for tools available in every project:
+
+```json
+{
+  "servers": [
+    {
+      "name": "memory",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    },
+    {
+      "name": "sequential-thinking",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+    },
+    {
+      "name": "github",
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "your_token_here"
+      }
+    }
+  ]
+}
 ```
 
-→ Select Guard DOWN for development  
-→ Select Start server
-
-Get bearer token:
-
-```bash
-pinchtab config token
-```
-
-→ Add `PINCHTAB_TOKEN=` to `.env`
+Orbit searches for `.orbit-mcp.json` by walking up from the current directory — the same pattern git uses for `.gitignore`. MCP tools are injected into the tool registry at startup and available in all modes automatically. Tool names follow the pattern `mcp__{serverName}__{toolName}`.
 
 ---
 
-## Usage Guide
-
-### Starting the CLI
-
-```bash
-orbit wakeup
-```
-
-You will see a menu like this:
-
-```
-◆  What would you like to do?
-│  ○ Chat mode
-│  ○ Tool Calling mode
-│  ○ Agentic mode
-│  ○ View history
-│  ○ Exit
-└
-```
-
-Use the arrow keys to select a mode and press Enter.
-
----
+## Usage
 
 ### Chat mode
-
-Select **Chat mode** to have a back-and-forth conversation with the AI. The AI knows your project context from the start.
-
-```
-You: What is the difference between async/await and promises?
-
-Orbital: Promises are objects that represent the eventual result of an
-asynchronous operation. async/await is syntax built on top of Promises
-that makes asynchronous code look and behave more like synchronous code...
-```
-
-The conversation continues until you type `exit` or select **Back** to return to the main menu.
-
----
+orbit wakeup → Chat → New conversation
+orbit α │ Gemini 2.5 Flash │ chat │ session-id
+────────────────────────────────────────────────────────────
+you
+│ what does the auth middleware do in this project?
+orbit
+│ The auth middleware in server/src/middleware/auth.js validates
+│ the Bearer token on every protected route...
 
 ### Tool Calling mode
 
-Select **Tool Calling mode** to tell the AI to use a specific developer tool. This is useful when you want a precise, predictable action rather than a full conversation.
+Select tools from the menu, then ask Orbit to use them:
+orbit α │ Gemini 2.5 Flash │ tool calling │ 3 tools │ session-id
+────────────────────────────────────────────────────────────
+── tool activity ───────────────────────────────────────────
+▸ mcp__github__search_repositories  {"query":"Sahil01010011"}
+── tool results ────────────────────────────────────────────
+✓ mcp__github__search_repositories
+orbit-alpha · aesthetic_corner · webx...
 
-```
-You: List all JavaScript files in the src directory
-
-Orbital: [calling list_directory_contents]
-→ src/index.js
-→ src/routes/users.js
-→ src/routes/posts.js
-→ src/middleware/auth.js
-```
-
----
-
-### Agentic mode
-
-Select **Agentic mode** and give the agent a goal. It will create a plan, work through each step, and report back.
-
-```
-◆  Describe your goal:
-│  Build a simple Express REST API with a /users endpoint
-
-◆  Where should output be created? (press Enter for current directory)
-│  ~/projects/my-api
-
-◆  Planning...
-│  Step 1: Create project structure
-│  Step 2: Initialize package.json
-│  Step 3: Install express
-│  Step 4: Create server.js with /users endpoint
-│  Step 5: Add README
-
-◆  Executing step 1...
-◆  Executing step 2...
-...
-◆  Done. Files written to ~/projects/my-api
-```
-
-The agent runs up to 10 steps automatically. Generated files are written to the directory you specify — never into the Orbital source folder.
-
----
-
-### History — view, resume, delete
-
-Select **View history** from the main menu to see all your past conversations.
-
-```
-◆  Select a conversation to resume (or go back)
-│  ○ Build a REST API  (chat · 2 days ago)
-│  ○ Explain React hooks  (chat · 5 days ago)
-│  ○ [Back]
-└
-```
-
-Select any conversation to resume it. The AI remembers everything that was said. To delete a conversation, select it and choose **Delete** from the options.
-
-You can also open history directly from the terminal:
+### Iterative Agent mode
 
 ```bash
-orbit history
-```
-
----
-
-### Navigation
-
-- Every screen has a **Back** option that returns you to the main menu.
-- The CLI stays open after each session — you choose when to exit.
-- Select **Exit** from the main menu or press `Ctrl+C` at any time to quit.
-
----
-
-### Other commands
-
-```bash
-# Authenticate with your GitHub account
-orbit login
-
-# See which account is logged in
-orbit whoami
-
-# Log out
-orbit logout
-
-# Start with the iterative reasoning loop (plan → act → observe → reflect)
 orbit wakeup --iterative
 ```
+orbit α │ Gemini 2.5 Flash │ iterative agent │ session-id │ ~/projects/myapp
+────────────────────────────────────────────────────────────
+› analyze this codebase and add JWT authentication to all API routes
+orbit · plan generated
+goal  analyze this codebase and add JWT authentication
+why   Read existing routes, understand auth pattern, implement middleware
+── steps ───────────────────────────────────────────────────
+1  Check memory for existing project knowledge
+2  Read directory tree to understand structure
+3  Read existing route files
+4  Implement JWT middleware
+5  Apply middleware to all protected routes
+6  Write tests
+────────────────────────────────────────────────────────────
+██░░░░  step 2/6  ·  acting
+Read directory tree to understand structure
+▸ directory_tree
+✓ src/ routes/ middleware/ models/ ...
+── reflect step 2 ──────────────────────────────────────────
+decision  proceed to next step
+reason    Directory structure understood. Express app with 4 route files.
 
 ---
 
 ## Architecture
+orbit-alpha/
+├── server/
+│   └── src/
+│       ├── cli/
+│       │   ├── main.js              — Entry point, banner, Commander setup
+│       │   ├── agent/               — Loop hardening (circuit breaker, compressor, orphan guard)
+│       │   ├── ai/
+│       │   │   ├── provider-factory.js   — Provider selection and fallback
+│       │   │   └── providers/            — Gemini, Claude, OpenAI implementations
+│       │   ├── chat/                — Four mode implementations
+│       │   └── commands/            — CLI commands (wakeup, login, history)
+│       ├── mcp/
+│       │   ├── client.js            — MCP stdio transport client
+│       │   ├── loader.js            — Config loading with walk-up search
+│       │   └── wrapper.js           — JSON Schema to Zod, name normalization
+│       ├── tools/                   — 32 built-in tools across 7 files
+│       ├── config/                  — System prompt, tool config, provider config
+│       └── service/                 — Chat and agent task persistence
+├── .orbit-mcp.json                  — Project-level MCP server config
+└── assets/                          — Static assets
 
-- `server/src/cli/agent/` — Agent loop hardening modules (terminal reason, circuit breaker, context compressor, orphan guard).
-- `server/src/cli/ai/providers/` — Provider implementations for Gemini, Claude Sonnet 3.5, and GPT-4o.
-- `server/src/cli/ai/provider-factory.js` — Single entry point for model access and provider selection.
+---
+
+## Browser Automation (Optional)
+
+Orbit includes browser tools powered by PinchTab — a lightweight Chrome automation server.
+
+```bash
+npm install -g pinchtab
+pinchtab          # Select Guard DOWN → Start server
+pinchtab config token   # Copy token to .env as PINCHTAB_TOKEN
+```
+
+Keep PinchTab running in a separate terminal when using browser tools.
 
 ---
 
 ## Troubleshooting
 
-### `orbit` command not found
-
-**Symptom:** Running `orbit wakeup` shows "command not found".
-
-**Fix:** Reinstall the global CLI from the `orbit-alpha` root directory:
-
+**`orbit` command not found**
 ```bash
+npm install -g .
+```
+
+**Credentials not loading (`injecting env (0)`)**
+Make sure `.env` exists in the `orbit-alpha/` root directory with all required values filled in.
+
+**Database connection error**
+Verify `DATABASE_URL` in `.env`. If using Neon, copy the full connection string including password.
+
+**Gemini rate limit errors**
+The free tier allows 5 requests per minute. For sustained agentic work, use a paid Gemini key or switch to Claude/GPT-4o at the model selection menu.
+
+**Global install fails with `EEXIST`**
+Delete stuck files from your npm global bin directory, then reinstall:
+```bash
+# Windows — delete from %AppData%\Roaming\npm:
+# orbit.cmd, orbit.ps1, orbit
 npm install -g .
 ```
 
 ---
 
-### `injecting env (0)` — credentials not loading
-
-**Symptom:** The CLI prints `injecting env (0)` and fails to authenticate or connect.
-
-**Fix:** Orbital is not finding your `.env` file. Make sure `.env` exists in the `server/` directory (not the project root) and contains all required values. The file must be at `server/.env`.
-
----
-
-### Database connection error
-
-**Symptom:** The server crashes on startup with a Prisma or database connection error.
-
-**Fix:** Double-check your `DATABASE_URL` in `.env`. If you are using Neon, make sure you copied the full connection string including the password. If you are using a local PostgreSQL instance, verify it is running with `pg_ctl status`.
-
----
-
-### Gemini rate limit errors
-
-**Symptom:** The AI returns an error about quota or rate limits during an agentic session.
-
-**Fix:** The free tier of the Google Gemini API allows 5 requests per minute. The agentic loop makes multiple requests per step, so longer tasks will hit this limit. Wait 60 seconds and try again, or upgrade to a paid Gemini tier at [aistudio.google.com](https://aistudio.google.com).
-
----
-
-### `npm install -g` fails with `EEXIST`
-
-**Symptom:** Global install fails because binary files from a previous install are stuck.
-
-**Fix:** Manually delete the stuck files from your npm global bin directory. On Windows, delete these files from `%AppData%\Roaming\npm`:
-
-```
-orbit.cmd
-orbit.ps1
-orbit
-```
-
-Then run `npm install -g .` again.
-
----
-
-### Port already in use
-
-**Symptom:** `Error: listen EADDRINUSE :::3000`
-
-**Fix:** Change `PORT=3000` in your `.env` to an unused port number (for example `PORT=3001`). Also update `BETTER_AUTH_URL` to match the new port.
-
----
-
-### `npm install -g` permission error on Mac/Linux
-
-**Symptom:** `EACCES: permission denied` when running `npm install -g .`
-
-**Fix (recommended):** Use [nvm](https://github.com/nvm-sh/nvm) to manage Node.js. When Node is installed via nvm, global installs work without elevated permissions.
-
-**Fix (alternative):**
-
-```bash
-sudo npm install -g .
-```
-
----
-
-## What is broken or incomplete
-
-- **Gemini free tier rate limits** — The free Gemini API tier allows 5 requests per minute. The agentic loop makes multiple requests per step, which causes rate limit errors on tasks with more than a few steps. Workaround: use short, focused goals, or upgrade to a paid Gemini tier.
-- **Task state persistence** — `AgentTask` records are written to the database but the resume flow relies primarily on conversation message history. Full task state persistence is partially implemented.
-
----
-
-## Remaining sessions plan
-
-- [x] Session 8 — Tool Execution Fix
-- [x] Sessions A–D — Agent Loop Hardening
-- [x] Phase 1 — Provider Abstraction
-- [x] Phase 2 — Multi-Model Support
-- [ ] Session 9 — Web Search Tool
-- [ ] Session 10 — Multi-Language Runtime Support
-- [ ] Session 12 — Test Suite
-- [ ] Final — Test suite
-
----
-
 ## Roadmap
 
-- Web search integration in chat mode
-- Multi-language support — Python, Rust, Go
-- Model abstraction layer — switch between Gemini, OpenAI, Groq
-- Rate limit handling with automatic retry and provider fallback
-- Full task state persistence and resume
-- Test suite
+- Token management — per-session budget, tool result truncation, token usage display
+- RAG / vector memory — pgvector on Neon for semantic codebase search
+- Test suite — unit, integration, and end-to-end tests
+- Production hardening — environment validation, structured logging, public release
 
 ---
 
 ## Contributing
 
-Contributions are welcome. Here is how to get started:
+1. Fork the repository
+2. Create a branch: `git checkout -b my-feature`
+3. Make changes and test locally
+4. Commit: `git commit -m "Add my feature"`
+5. Push: `git push origin my-feature`
+6. Open a Pull Request
 
-1. Fork the repository on GitHub.
-2. Create a new branch: `git checkout -b my-feature`
-3. Make your changes and test them locally.
-4. Commit with a clear message: `git commit -m "Add my feature"`
-5. Push to your fork: `git push origin my-feature`
-6. Open a Pull Request on GitHub describing what you changed and why.
-
-Please keep pull requests focused on a single change. If you are fixing a bug and adding a feature, open two separate PRs.
+Keep pull requests focused on a single change.
 
 ---
 
 ## License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+MIT License — see [LICENSE](LICENSE) for details.
