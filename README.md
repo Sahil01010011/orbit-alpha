@@ -1,3 +1,4 @@
+<img>
 # Orbital CLI
 
 > An autonomous AI developer agent that lives in your terminal
@@ -41,6 +42,12 @@ The key difference from using ChatGPT or Claude in a browser is that Orbital tak
 - **Output directory control** — When generating files, Orbital asks you where to write them. Generated files always land where you tell them to — never mixed into the Orbital source code.
 - **Persistent loop** — The CLI stays open and returns you to the main menu after each session. You choose when to exit.
 - **Back navigation** — Every submenu has a back option so you are never stuck.
+- **MCP (Model Context Protocol) support** — Connect any MCP-compatible server via `.orbit-mcp.json` in your project root or `~/.orbit/mcp.json` for global tools. MCP tools are automatically injected into the tool registry and available in all modes.
+- **50+ MCP tools available** — Ships with support for filesystem (14 tools), memory (9 tools), sequential-thinking (1 tool), and GitHub (26 tools) MCP servers out of the box.
+- **Persistent cross-session memory** — The memory MCP server gives Orbit the ability to store and recall facts, architectural decisions, and project knowledge across sessions.
+- **GitHub MCP integration** — Create issues, search repositories, manage PRs, and interact with GitHub directly from the agent.
+- **Redesigned TUI** — All four modes have been redesigned with a unified color system, status bars, role labels, and clean output formatting.
+- **Intelligent path resolution** — File tools now resolve paths relative to the specified output directory, enabling the agent to correctly operate on any project regardless of where orbit was launched from.
 
 ---
 
@@ -457,10 +464,6 @@ sudo npm install -g .
 
 ## Roadmap
 
-- Web search integration in chat mode
-- Multi-language support — Python, Rust, Go
-- Model abstraction layer — switch between Gemini, OpenAI, Groq
-- Rate limit handling with automatic retry and provider fallback
 - Full task state persistence and resume
 - Test suite
 
