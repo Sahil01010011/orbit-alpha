@@ -92,16 +92,16 @@ export async function requireAuth() {
 
   if (!token) {
     console.log(
-      chalk.red("❌ Not authenticated. Please run 'your-cli login' first.")
+      chalk.red("Not authenticated. Please run 'your-cli login' first.")
     );
     process.exit(1);
   }
 
   if (await isTokenExpired()) {
     console.log(
-      chalk.yellow("⚠️  Your session has expired. Please login again.")
+      chalk.yellow("Your session has expired. Please login again.")
     );
-    console.log(chalk.gray("   Run: your-cli login\n"));
+    console.log(chalk.gray(" Run: your-cli login\n"));
     process.exit(1);
   }
 
@@ -123,12 +123,12 @@ export async function loginAction(opts) {
   const serverUrl = options.serverUrl || DEMO_URL;
   const clientId = options.clientId || CLIENT_ID;
 
-  intro(chalk.bold("🔐 Better Auth CLI Login"));
+  intro(chalk.bold(" Better Auth CLI Login"));
 
   if (!clientId) {
     logger.error("CLIENT_ID is not set in .env file");
     console.log(
-      chalk.red("\n❌ Please set GITHUB_CLIENT_ID in your .env file")
+      chalk.red("\n Please set GITHUB_CLIENT_ID in your .env file")
     );
     process.exit(1);
   }
@@ -175,11 +175,11 @@ export async function loginAction(opts) {
       );
 
       if (error?.status === 404) {
-        console.log(chalk.red("\n❌ Device authorization endpoint not found."));
+        console.log(chalk.red("\n Device authorization endpoint not found."));
         console.log(chalk.yellow("   Make sure your auth server is running."));
       } else if (error?.status === 400) {
         console.log(
-          chalk.red("\n❌ Bad request - check your CLIENT_ID configuration.")
+          chalk.red("\n Bad request - check your CLIENT_ID configuration.")
         );
       }
 
@@ -197,7 +197,7 @@ export async function loginAction(opts) {
 
     // Display authorization instructions
     console.log("");
-    console.log(chalk.cyan("📱 Device Authorization Required"));
+    console.log(chalk.cyan(" Device Authorization Required"));
     console.log("");
     console.log(
       `Please visit: ${chalk.underline.blue(
@@ -240,10 +240,10 @@ export async function loginAction(opts) {
 
       if (!saved) {
         console.log(
-          chalk.yellow("\n⚠️  Warning: Could not save authentication token.")
+          chalk.yellow("\nWarning: Could not save authentication token.")
         );
         console.log(
-          chalk.yellow("   You may need to login again on next use.")
+          chalk.yellow("You may need to login again on next use.")
         );
       }
 
@@ -258,15 +258,15 @@ export async function loginAction(opts) {
 
       outro(
         chalk.green(
-          `✅ Login successful! Welcome ${
+          ` Login successful! Welcome ${
             session?.user?.name || session?.user?.email || "User"
           }`
         )
       );
 
-      console.log(chalk.gray(`\n📁 Token saved to: ${TOKEN_FILE}`));
+      console.log(chalk.gray(`\nToken saved to: ${TOKEN_FILE}`));
       console.log(
-        chalk.gray("   You can now use AI commands without logging in again.\n")
+        chalk.gray("You can now use AI commands without logging in again.\n")
       );
     }
   } catch (err) {
@@ -350,7 +350,7 @@ async function pollForToken(authClient, deviceCode, clientId, initialInterval) {
 // ============================================
 
 export async function logoutAction() {
-  intro(chalk.bold("👋 Logout"));
+  intro(chalk.bold(" Logout"));
 
   const token = await getStoredToken();
 
@@ -372,9 +372,9 @@ export async function logoutAction() {
   const cleared = await clearStoredToken();
 
   if (cleared) {
-    outro(chalk.green("✅ Successfully logged out!"));
+    outro(chalk.green(" Successfully logged out!"));
   } else {
-    console.log(chalk.yellow("⚠️  Could not clear token file."));
+    console.log(chalk.yellow("  Could not clear token file."));
   }
 }
 
@@ -407,9 +407,9 @@ export async function whoamiAction(opts) {
 
   // Output user session info
   console.log(
-    chalk.bold.greenBright(`\n👤 User: ${user.name}
-📧 Email: ${user.email}
-👤 ID: ${user.id}`)
+    chalk.bold.greenBright(`\n User: ${user.name}
+ Email: ${user.email}
+ ID: ${user.id}`)
   );
 }
 

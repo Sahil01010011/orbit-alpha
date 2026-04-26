@@ -326,7 +326,7 @@ export function formatContextForPrompt(context) {
     }
   } else {
     lines.push(
-      "⚠️  No package.json found — proceeding with minimal context"
+      "No package.json found — proceeding with minimal context"
     );
   }
 

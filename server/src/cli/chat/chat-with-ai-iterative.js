@@ -900,7 +900,7 @@ async function iterativeAgentLoop(conversation, workingDirectory) {
     }
 
     const userInput = await text({
-      message: chalk.cyan("🎯 Enter your goal"),
+      message: chalk.cyan("Enter your goal"),
       placeholder: "Describe what you want to achieve in detail...",
       validate(value) {
         if (!value || value.trim().length === 0) {
