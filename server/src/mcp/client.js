@@ -2,11 +2,6 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { wrapMcpTool } from './wrapper.js';
 
-/**
- * Connect to a single MCP server via stdio and return wrapped tools.
- * @param {{ name: string, command: string, args: string[], env?: object }} serverConfig
- * @returns {Promise<Array<{ name: string, description: string, parameters: any, execute: Function }>>}
- */
 export async function connectMcpServer(serverConfig) {
   const { name, command, args = [], env = {} } = serverConfig;
 
@@ -17,7 +12,11 @@ export async function connectMcpServer(serverConfig) {
       ...process.env,
       ...env,
     },
+    stderr: 'pipe',
   });
+
+  // Suppress all server stdout/stderr noise from appearing in terminal
+  transport.stderr?.on('data', () => {});
 
   const client = new Client(
     { name: 'orbit-alpha', version: '1.0.0' },
@@ -34,7 +33,6 @@ export async function connectMcpServer(serverConfig) {
       arguments: toolArgs,
     });
 
-    // MCP tool results are arrays of content blocks
     if (Array.isArray(result.content)) {
       return result.content
         .map(block => {
