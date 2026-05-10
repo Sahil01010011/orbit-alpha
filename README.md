@@ -245,7 +245,7 @@ Read directory tree to understand structure
 decision  proceed to next step
 reason    Directory structure understood. Express app with 4 route files.
 
----
+```
 
 ## Architecture
 orbit-alpha/
@@ -269,7 +269,7 @@ orbit-alpha/
 ├── .orbit-mcp.json                  — Project-level MCP server config
 └── assets/                          — Static assets
 
----
+```
 
 ## Browser Automation (Optional)
 
