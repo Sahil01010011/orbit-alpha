@@ -513,6 +513,117 @@ Added environment variable support for:
 
 ---
 
+### Session 13 — TUI Redesign
+
+**What was built:** A complete redesign of all four mode displays and the main menu using a unified chalk-based design language. Replaced all boxen borders, emoji headers, and Clack intro/outro wrappers with clean terminal output.
+
+**Approach:** Applied a unified hex color system across all files: cyan (#22d3ee) for orbit branding, blue (#38bdf8) for user messages, purple (#a78bfa) for AI responses, green (#4ade80) for success, yellow (#facc15) for warnings/thinking, red (#f87171) for errors, gray (#6b7280) for secondary text.
+
+Files modified:
+- `server/src/cli/chat/chat-with-ai.js` — Status bar on entry, "you"/"orbit" role labels, left accent border on messages, live streaming with thinking spinner, divider lines
+- `server/src/cli/chat/chat-with-ai-tool.js` — Tool activity section with arrow prefix, tool results with checkmarks and timing, structured response display
+- `server/src/cli/chat/chat-with-ai-agent.js` — Compact generation progress display, structured file/command output list
+- `server/src/cli/chat/chat-with-ai-iterative.js` — Block character progress bar (█░), phase labels (planning/acting/reflecting), reflection decision display with decision and reason
+- `server/src/cli/commands/ai/wakeUp.js` — Unified hex colors, clean feedback messages, no emoji
+- `server/src/cli/commands/history/history.js` — Mode badges color-coded by type (cyan=chat, green=tool, purple=agent), conversation list with dates and previews, red warning block for delete confirmation
+
+**Why chalk over Ink:** Ink was attempted across three separate sub-sessions (12-A through 12-B). JSX transpilation via esbuild broke Prisma's native binary resolution because the bundled dist file resolved paths from AppData/npm rather than the project directory. tsx as a loader could not be found from the global install context. Chalk renders natively in Node.js ESM with no build step, no path resolution issues, and no bundling required.
+
+**Problems:** Ink JSX files require either a build step (esbuild) or a loader (tsx). Both approaches broke the global install path resolution. esbuild bundles everything into dist/main.js which runs from AppData/npm — Prisma cannot find its query engine binary from there. tsx requires global install but cannot be resolved from the npm global wrapper script.
+
+**Resolution:** Full chalk-based redesign with no build step. Visually consistent across all modes. Works in any terminal on Windows, Mac, and Linux.
+
+---
+
+### Session 14 — MCP Implementation
+
+**What was built:** Full Model Context Protocol (MCP) support. Orbit can now connect to any MCP-compatible tool server and use its tools alongside the 32 built-in tools.
+
+**Approach:** Three new files in `server/src/mcp/`:
+
+- `client.js` — Connects to a single MCP server via stdio transport using @modelcontextprotocol/sdk. Calls tools/list to discover available tools. Wraps callTool responses (arrays of content blocks) into plain strings. Suppresses server stderr noise via pipe and discard.
+- `loader.js` — Reads .orbit-mcp.json with walk-up directory search (mirrors git's .gitignore discovery). Falls back to ~/.orbit/mcp.json for global tools. Connects to all configured servers sequentially and returns all wrapped tools.
+- `wrapper.js` — Converts MCP JSON Schema tool definitions to Zod schemas via recursive jsonSchemaToZod conversion. Handles nested object arrays (required for memory server entities). Normalizes tool names to mcp__{serverName}__{toolName} pattern (max 64 chars). Appends schema hints to tool descriptions so the model knows exact field names.
+
+Config locations:
+- Project-level: `.orbit-mcp.json` in project root or any parent directory (walk-up search, max 10 levels)
+- Global: `~/.orbit/mcp.json` — always loaded as fallback
+
+Integration point: `server/src/cli/commands/ai/wakeUp.js` calls `loadMcpTools(invocationDir)` at startup, then `injectMcpTools()` and `refreshAvailableTools()` to make MCP tools available in all modes including the iterative agent.
+
+MCP servers integrated and tested:
+| Server | Tools | Purpose |
+|--------|-------|---------|
+| @modelcontextprotocol/server-filesystem | 14 | File operations via MCP protocol |
+| @modelcontextprotocol/server-memory | 9 | Persistent cross-session knowledge graph |
+| @modelcontextprotocol/server-sequential-thinking | 1 | Structured multi-step reasoning scratchpad |
+| @modelcontextprotocol/server-github | 26 | Repository, issues, PRs, code search |
+
+**Problems:**
+1. JSON Schema to Zod conversion — MCP tools use nested object arrays (entities array containing objects with name/entityType/observations). Initial passthrough schema caused model to send wrong field names. Fixed with recursive jsonSchemaPropertyToZod that handles arrays of objects.
+2. Model field name hallucination — Gemini ignored Zod schema and used "type" instead of "entityType". Fixed by appending explicit field name examples to tool descriptions and adding MCP tool instructions to ORBITAL_SYSTEM_PROMPT.
+3. @modelcontextprotocol/server-postgres deprecated — removed from config.
+4. @modelcontextprotocol/server-puppeteer times out on connection — removed in favor of existing PinchTab tools.
+5. MCP server stderr noise — server startup messages printed to terminal making startup look messy. Fixed by adding stderr: 'pipe' to StdioClientTransport and discarding all stderr data.
+
+**Resolution:** 50 MCP tools available alongside 32 built-in tools. Total 82+ tools accessible in all modes.
+
+---
+
+### Session 15 — System Prompt Rewrite and Tool Path Fix
+
+**What was built:** A complete rewrite of ORBITAL_SYSTEM_PROMPT based on analysis of Claude Code's production system prompt source. Fixed critical path resolution bug in all file and directory tools.
+
+**System prompt restructure:**
+
+Old prompt: flat paragraph-style instructions with no clear hierarchy.
+
+New prompt: named sections matching production agent architecture:
+- `# Identity` — Agent name, role, environment, primary function
+- `# System` — How output reaches the user, tool result handling
+- `# Doing Tasks` — Planning before acting, step-by-step execution, failure recovery, verification before claiming completion
+- `# Executing Actions With Care` — Reversibility guidance. Explicit list of free actions (read files, run tests, write files) vs actions requiring confirmation (delete, force push, drop database, send messages to external services)
+- `# Using Your Tools` — Built-in tool preference hierarchy (read_file over shell cat, write_file over shell echo), MCP tool field names with exact JSON examples, parallel tool call instruction
+- `# Output Efficiency` — Concise output, no narration, no step-by-step commentary
+- `# Output Quality` — Production-ready code, no placeholders, security awareness
+- `# Context Integration` — Use detected stack, verify dependencies before importing
+- `# Large Codebase Strategy` — Check memory first, use directory_tree before reading files, search before reading, store findings in memory progressively, never hold full codebase in context
+- `# Termination and Communication` — Final summary format, never silently fail, verify before reporting completion
+
+Key additions inspired by Claude Code:
+- Reversibility and blast radius categorization
+- Security awareness (command injection, XSS, SQL injection)
+- Parallel tool calls
+- Memory-first workflow for large codebases
+- Sequential thinking guidance
+
+**Tool path resolution fix:**
+
+Problem: Built-in file tools (read_file, write_file, delete_file, move_file, search_files) and directory tools (create_directory, list_directory, directory_tree) resolved all paths using process.cwd() as base. When the iterative agent operated on a project in a different directory (the output directory the user specifies), all file reads returned empty results or "file not found" errors.
+
+Root cause: `resolvePath(file_path)` in filesystem.js called `path.resolve(file_path)` with only one argument, making `file_path` itself the base. This resolves relative to process.cwd() not the output directory.
+
+Fix: Added `resolveWithContext(filePath, context)` helper to both `filesystem.js` and `directory.js`:
+- If filePath is absolute: use it directly
+- If filePath is relative: resolve against `context.outputDirectory`
+- Fallback: resolve against `process.cwd()`
+
+Impact: Agent can now correctly read, write, and search files in any project directory regardless of where `orbit wakeup` was launched from. The iterative agent pointed at `C:\\Projects\\myapp` can now read `requirements.txt` as a relative path without needing the full absolute path.
+
+---
+
+### Session 16 — MCP Startup Noise Suppression
+
+**What was built:** Suppression of MCP server process stdout/stderr from appearing in the terminal during startup.
+
+**Problem:** MCP servers print their own startup messages to stderr when launched (e.g. "Secure MCP Filesystem Server running on stdio", "Knowledge Graph MCP Server running on stdio", "Client does not support MCP Roots"). These messages appeared in the terminal interleaved with Orbit's own MCP status lines, making startup look noisy and unprofessional.
+
+**Fix:** Added `stderr: 'pipe'` to the `StdioClientTransport` configuration in `server/src/mcp/client.js`. Added an empty data handler on `transport.stderr` to consume and discard all server stderr output. Orbit's own connection status lines (mcp · connecting to X... / mcp · X connected · N tools loaded) remain visible.
+
+**Result:** Clean startup output showing only Orbit's own status lines.
+
+---
+
 ### Architecture Note — Server Independence Discovery
 
 **What was built:** Documentation clarification that the Express server is only required for initial OAuth login.
@@ -531,7 +642,7 @@ Added environment variable support for:
 
 **Root cause:** The Google Gemini free tier allows 5 requests per minute. The agentic loop makes multiple model calls per step — one for planning, one per action, one for reflection. A task with 3 steps can easily trigger 9+ model calls, all within a minute.
 
-**Status:** Pending. The model abstraction layer planned for a future session will include exponential backoff, automatic retry, and the option to switch to a paid provider or an alternative model (OpenAI, Groq).
+**Status:** Partially resolved. The provider abstraction layer (Phase 1 and 2) added multi-model support with automatic fallback to Gemini. Users can switch to Claude Sonnet 3.5 or GPT-4o at startup to avoid free tier limits. Exponential backoff exists in the circuit breaker module. Full token budget management is planned for a future session.
 
 ---
 
@@ -579,7 +690,7 @@ Added environment variable support for:
 
 **Root cause:** The agentic loop writes `AgentTask` records to the database at the start of execution. However, the Gemini rate limit error crashes the process before the first `createTask` database write completes on longer tasks.
 
-**Status:** Will resolve when the rate limit issue is fixed. Once the loop can complete without crashing, task records will be written and the persistence layer can be validated.
+**Status:** Partially resolved. The iterative agent now completes multi-step tasks when using paid API tiers. AgentTask records are written and the resume flow works via conversation message history. Full task state resume (restoring exact step position) requires further validation.
 
 ---
 
@@ -601,16 +712,20 @@ Added environment variable support for:
 
 ## Current Known Issues
 
-- **One dotenv verbose line remaining on startup** — A single `[dotenv]` status line still appears on the first CLI invocation despite `quiet: true`. Source not yet identified.
-- **Task state persistence unvalidated** — `AgentTask` records are defined in the schema and the write logic exists, but the Gemini rate limit crashes the process before the records are written on any task long enough to exercise the persistence path. Cannot validate until rate limiting is resolved.
+- **Gemini free tier rate limits** — The free tier quota (5 requests/minute) is frequently hit during iterative agent sessions with multiple steps. Each step makes 2-3 model calls (execution + reflection). Use a paid Gemini key or switch to Claude/GPT-4o at the model selection menu for sustained agentic work.
+- **MCP memory field names** — Gemini occasionally uses incorrect field names (e.g. "type" instead of "entityType") despite schema hints and system prompt guidance. Mitigated via explicit examples in ORBITAL_SYSTEM_PROMPT but not fully resolved.
+- **Puppeteer MCP incompatible** — The @modelcontextprotocol/server-puppeteer package times out on connection. Use the existing PinchTab browser tools instead.
+- **One dotenv verbose line on startup** — A single [dotenv] status line still appears on first CLI invocation. Source not yet identified.
 
 ---
 
 ## Planned Future Sessions
 
-- **Session 11 — Model Abstraction Layer:** Create a provider abstraction so the model can be switched between Gemini, OpenAI, and Groq without touching the orchestrator. Include exponential backoff, automatic retry on rate limit errors, and provider fallback.
-- **Session 12 — Test Suite:** Unit tests for the tool registry, integration tests for the orchestrator tool call loop, and end-to-end tests for the CLI modes.
-- **Final — Production Hardening:** Environment validation on startup, graceful error handling throughout, structured logging, and public release preparation.
+- **Token Management** — Tool result truncation before API calls to prevent large file reads from consuming the full context window. Per-session token budget setting via --budget flag. Step result compression in the iterative agent keeping only the last N steps in full. Token usage display in the status bar so users can monitor consumption in real time.
+- **Test Suite** — Unit tests for the tool registry (registration, retrieval, schema generation). Unit tests for the MCP client, loader, and wrapper. Integration tests for the iterative agent tool call loop. End-to-end tests for all four CLI modes (chat, tool calling, agent, iterative).
+- **RAG / Vector Memory** — pgvector extension on Neon for semantic search over large codebases. Store file embeddings at project analysis time. Retrieve semantically relevant files rather than reading blindly. Complement the MCP memory server (knowledge graph) with vector-based similarity search for code.
+- **Multi-Agent Orchestration** — Spawn sub-agents for independent parallel tasks. One planning agent, multiple execution agents. Results merged by orchestrator. Reduces total session time for large goals.
+- **Production Hardening** — Environment validation on startup with clear error messages for missing keys. Structured logging with log levels. Graceful shutdown handling. Public npm package release preparation.
 
 ---
 
@@ -646,3 +761,11 @@ Building a custom GitHub OAuth implementation would require handling the OAuth c
 ### Vercel AI SDK
 
 The Vercel AI SDK (`ai` package) was chosen because it provides a unified interface across multiple model providers. Switching from Gemini to OpenAI or Groq requires changing a provider import, not rewriting the orchestrator. The SDK also provides built-in abstractions for streaming responses and tool calling that map cleanly onto the Orbital orchestrator design. This decision directly enables the model abstraction layer planned for Session 11.
+
+### MCP Registry Integration Pattern
+
+MCP tools are injected into the same central registry as built-in tools rather than maintaining a separate MCP tool list. This decision was deliberate: the orchestrator, tool calling mode, and iterative agent all call `getToolSchemas(context)` to get available tools. By injecting MCP tools into the registry at startup, zero changes were needed to any of the three consumers. MCP tools are indistinguishable from built-in tools at the orchestrator level — they have the same name, description, parameters, and execute function shape. The only difference is their name prefix (`mcp__serverName__toolName`) which the model uses to understand their source.
+
+### Walk-Up Directory Search for MCP Config
+
+The `.orbit-mcp.json` config file is discovered by walking up the directory tree from the current working directory, checking each level for the config file. This mirrors how git discovers `.gitignore` and `.git` directories. The benefit is that users can run `orbit wakeup` from any subdirectory of their project and still have their project-level MCP config loaded automatically. A global fallback at `~/.orbit/mcp.json` ensures tools are always available when running from directories with no project config.
