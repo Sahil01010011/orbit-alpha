@@ -14,11 +14,6 @@ const PROVIDERS = {
   openai: () => new OpenAIProvider(),
 };
 
-/**
- * Returns the active provider instance based on ORBITAL_MODEL_PROVIDER env var.
- * Defaults to 'gemini' if not set or if the specified provider is not registered.
- * Validates the provider implements the required interface before returning.
- */
 export function getProvider() {
   const key = (process.env.ORBITAL_MODEL_PROVIDER || 'gemini').toLowerCase();
   const factory = PROVIDERS[key] || PROVIDERS['gemini'];
@@ -85,25 +80,14 @@ export async function sendMessageWithFallback(
   }
 }
 
-/**
- * Returns all registered provider keys.
- */
 export function getAvailableProviders() {
   return Object.keys(PROVIDERS);
 }
 
-/**
- * Register a new provider at runtime.
- * Used by future provider modules to self-register.
- */
 export function registerProvider(key, factory) {
   PROVIDERS[key] = factory;
 }
 
-/**
- * Returns display info for all providers including availability status.
- * Used by the startup menu to show which providers have API keys configured.
- */
 export function getProviderInfo() {
   return [
     {
@@ -114,7 +98,7 @@ export function getProviderInfo() {
     },
     {
       key: 'claude',
-      name: 'Claude Sonnet 3.5', //name: 'Claude Sonnet 4.5'
+      name: 'Claude Sonnet 4.6',
       hint: 'Requires ANTHROPIC_API_KEY',
       available: !!process.env.ANTHROPIC_API_KEY,
     },
@@ -128,9 +112,16 @@ export function getProviderInfo() {
 }
 
 export function getActiveProviderInfo() {
+  const key = (process.env.ORBITAL_MODEL_PROVIDER || 'gemini').toLowerCase();
+  const infoMap = {
+    gemini: 'Gemini 2.5 Flash',
+    claude: 'Claude Sonnet 4.6',
+    openai: 'GPT-4o',
+  };
+  const resolvedName = infoMap[key] || 'Gemini 2.5 Flash';
   return {
-    activeName: _activeName,
-    requestedName: _requestedName,
+    activeName: _isFallback ? 'Gemini 2.5 Flash' : resolvedName,
+    requestedName: resolvedName,
     isFallback: _isFallback,
   };
 }
