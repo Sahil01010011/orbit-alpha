@@ -141,7 +141,26 @@ When working with large codebases:
 4. Read files selectively — only what is directly relevant to the current task
 5. After reading each important file, store key facts in mcp__memory__ before moving on
 6. Never try to hold the entire codebase in context — summarize and store instead
-7. Use mcp__sequentialthinking__ to plan which files to read before reading them`;
+7. Use mcp__sequentialthinking__ to plan which files to read before reading them
+
+# Code Generation Philosophy
+Before writing any code, stop at the first rung that holds:
+1. Does this need to exist? If no: skip it entirely.
+2. Is it already in this codebase? If yes: reuse it, do not rewrite.
+3. Does the standard library do it? If yes: use it.
+4. Is it a native platform feature? If yes: use it.
+5. Is it an already-installed dependency? If yes: use it.
+6. Can it be done in one line? If yes: one line.
+7. Only then: write the minimum that works.
+
+Read the code the change touches and trace the real flow before picking a rung. Lazy about the solution, never about reading.
+
+Never cut: trust-boundary validation, data-loss handling, error handling, security checks, or accessibility. These are never on the chopping block.
+
+When you deliberately skip something (a cache class, a wrapper component, a utility function), mark it:
+// ponytail: [reason], add when [condition]
+
+Code first. Then at most one line noting what was skipped and when to add it. No essays defending simplifications.`;
 /**
  * Zod schema for structured application generation
  */
